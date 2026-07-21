@@ -358,3 +358,105 @@ input,select{font-weight:500}
 @media(max-width:760px){
   .table-wrap table{min-width:760px}
 }
+
+
+/* v2.1 새 아이콘 및 가벼운 글씨 두께 */
+:root{
+  --oto-blue:#003DEA;
+  --oto-coral:#FF5B57;
+}
+
+html,body,#root{
+  font-weight:400;
+}
+
+body{
+  font-weight:400;
+  letter-spacing:-.01em;
+}
+
+.brand b,
+.login h1,
+.modal-head h2,
+.panel-title{
+  font-weight:700;
+}
+
+button,
+.primary,
+nav button,
+label,
+th,
+.badge{
+  font-weight:600;
+}
+
+.stat strong,
+td b,
+.log-list strong,
+.bars b{
+  font-weight:600;
+}
+
+input,
+select,
+textarea{
+  font-weight:400;
+}
+
+.brand-sub{
+  font-weight:600;
+}
+
+.app-logo{
+  background:var(--oto-blue);
+  object-fit:cover;
+}
+
+.header-logo{
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  box-shadow:0 4px 14px rgba(0,61,234,.22);
+}
+
+.login-logo{
+  width:116px;
+  height:116px;
+  border-radius:27px;
+  box-shadow:0 12px 30px rgba(0,61,234,.22);
+}
+
+.primary,
+.login .primary{
+  background:var(--oto-coral);
+  border-color:var(--oto-coral);
+}
+
+nav button.active{
+  background:var(--oto-blue);
+  border-color:var(--oto-blue);
+}
+
+.bar i{
+  background:var(--oto-coral);
+}
+
+/* 로딩 화면 애니메이션 사용 안 함 */
+.splash-dot{
+  display:none!important;
+  animation:none!important;
+}
+
+@media(max-width:760px){
+  .header-logo{
+    width:38px;
+    height:38px;
+    border-radius:12px;
+  }
+  .login-logo{
+    width:106px;
+    height:106px;
+    border-radius:25px;
+  }
+}

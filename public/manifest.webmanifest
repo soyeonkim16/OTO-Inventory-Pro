@@ -7,8 +7,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#123BEA",
-  "theme_color": "#123BEA",
+  "background_color": "#003DEA",
+  "theme_color": "#003DEA",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -25,7 +25,8 @@
     {
       "src": "/icons/apple-touch-icon.png",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='2.0.1';
+const APP_VERSION='2.1.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -20,6 +20,24 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
 const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,memo:''};
 const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
+
+
+function makeInternalSku(form){
+  const clean=value=>String(value||'')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9가-힣]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .slice(0,12);
+
+  const name=clean(form.name)||'ITEM';
+  const size=clean(form.size)||'NA';
+  const color=clean(form.color)||'NA';
+  const stamp=Date.now().toString(36).toUpperCase();
+  const random=Math.random().toString(36).slice(2,6).toUpperCase();
+
+  return `${name}-${size}-${color}-${stamp}-${random}`.slice(0,80);
+}
 
 function App(){
   const [session,setSession]=useState(null);
@@ -386,7 +404,7 @@ function ProductModal({value,onClose,onSaved}){
     try{
       const result=form.id
         ?await supabase.from('products').update(payload).eq('id',form.id)
-        :await supabase.from('products').insert({...payload,sku:null});
+        :await supabase.from('products').insert({...payload,sku:makeInternalSku(form)});
       if(result.error)throw result.error;
       onSaved();
     }catch(e){
