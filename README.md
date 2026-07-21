@@ -1,4 +1,10 @@
-# OTO Inventory Pro v2.0
+# 긴급 빌드 수정
+
+- package-lock.json의 내부 전용 패키지 주소를 공식 npm 주소로 교체
+- Node.js 22로 고정(.nvmrc)
+- 의존성 버전을 고정하여 Netlify 빌드 안정화
+
+# OTO Inventory Pro v2.0.1
 
 ## 포함 기능
 - 아이디 + 비밀번호 로그인
