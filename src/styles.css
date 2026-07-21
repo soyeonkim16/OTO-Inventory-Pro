@@ -294,3 +294,67 @@ input,select{font-weight:500}
     max-height:none;
   }
 }
+
+/* v1.7 employee management */
+.employee-title{margin:0;font-size:20px}
+.employee-subtitle{margin:5px 0 0;color:#667085;font-size:13px}
+.employee-error{margin:14px}
+.employee-list{display:grid}
+.employee-list>article{
+  display:grid;
+  grid-template-columns:auto minmax(220px,1fr) auto;
+  align-items:center;
+  gap:14px;
+  padding:15px 18px;
+  border-bottom:1px solid #eaecf0;
+  background:#fff;
+}
+.employee-list>article.inactive{background:#f8f9fb;opacity:.72}
+.employee-avatar{
+  width:46px;height:46px;border-radius:14px;display:grid;place-items:center;
+  background:#eef1ff;color:#123bea;font-size:18px;font-weight:800
+}
+.employee-info{display:grid;gap:5px}
+.employee-info>div{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.employee-info small{color:#667085}
+.role-badge,.active-badge,.self-badge{
+  font-size:11px;font-weight:700;border-radius:999px;padding:4px 7px
+}
+.role-badge.admin{color:#6941c6;background:#f4f0ff}
+.role-badge.staff{color:#175cd3;background:#eff8ff}
+.active-badge.on{color:#067647;background:#ecfdf3}
+.active-badge.off{color:#b42318;background:#fef3f2}
+.self-badge{color:#344054;background:#f2f4f7}
+.employee-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px}
+.employee-actions button{display:flex;align-items:center;gap:5px;padding:8px 10px}
+.employee-actions .danger-button{color:#b42318;background:#fff5f4;border-color:#fecdca}
+.employee-actions .activate-button{color:#067647;background:#ecfdf3;border-color:#abefc6}
+.employee-loading{padding:36px;text-align:center;color:#667085}
+.employee-id-help{
+  font-size:12px;line-height:1.55;color:#475467;background:#f8f9fb;
+  border:1px solid #eaecf0;border-radius:10px;padding:10px 12px
+}
+.employee-id-help code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+@media(max-width:760px){
+  .employee-list>article{grid-template-columns:auto 1fr}
+  .employee-actions{grid-column:1/-1;justify-content:flex-start}
+}
+@media(max-width:480px){
+  .employee-list>article{grid-template-columns:1fr}
+  .employee-avatar{display:none}
+  .employee-actions button{flex:1;justify-content:center}
+}
+
+/* v1.8 customer deletion and simplified inventory */
+.customer-card-actions .danger-button{
+  color:#b42318;
+  background:#fff5f4;
+  border-color:#fecdca;
+}
+.customer-card-actions .danger-button:hover{
+  background:#fee4e2;
+  border-color:#fda29b;
+}
+@media(max-width:760px){
+  .table-wrap table{min-width:760px}
+}

@@ -1,4 +1,4 @@
-const CACHE='oto-inventory-v1.6.0';
+const CACHE='oto-inventory-v1.8.0';
 const STATIC=['/','/index.html','/manifest.webmanifest','/oto-app-logo.png','/icons/icon-192.png','/icons/icon-512.png','/icons/apple-touch-icon.png'];
 
 self.addEventListener('install',event=>{

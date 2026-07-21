@@ -1,10 +1,10 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {createClient} from '@supabase/supabase-js';
-import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck} from 'lucide-react';
+import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='1.6.0';
+const APP_VERSION='1.8.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -17,7 +17,7 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
   realtime:{params:{eventsPerSecond:4}}
 });
 
-const emptyProduct={name:'',sku:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,memo:''};
+const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,memo:''};
 const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 
@@ -123,6 +123,45 @@ function App(){
   if(!authReady)return <div className="auth-blank" aria-hidden="true"/>;
   if(!session)return <Login/>;
 
+  async function deleteCustomer(customer){
+    const relatedLogs=logs.filter(log=>
+      log.movement_type==='out' &&
+      (log.customer_id===customer.id || (!log.customer_id && log.customer_name===customer.name))
+    );
+    const totalQuantity=relatedLogs.reduce((sum,log)=>sum+Number(log.quantity||0),0);
+
+    const message=relatedLogs.length
+      ? `"${customer.name}" 거래처를 삭제할까요?\n\n출고 기록 ${relatedLogs.length.toLocaleString()}건, 총 ${totalQuantity.toLocaleString()}개의 이력은 그대로 보존됩니다.`
+      : `"${customer.name}" 거래처를 삭제할까요?`;
+
+    if(!window.confirm(message))return;
+
+    const typed=window.prompt(`삭제 확인을 위해 거래처명 "${customer.name}"을(를) 그대로 입력하세요.`);
+    if(typed!==customer.name){
+      if(typed!==null)window.alert('거래처명이 일치하지 않아 삭제하지 않았습니다.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try{
+      const {error}=await supabase.rpc('delete_customer_safely',{p_customer_id:customer.id});
+      if(error)throw error;
+      if(customerModal?.id===customer.id)setCustomerModal(null);
+      await loadAll({silent:true});
+      window.alert('거래처가 삭제되었습니다. 기존 출고 이력은 보존됩니다.');
+    }catch(e){
+      const message=normalizeError(e);
+      setError(
+        message.includes('delete_customer_safely')
+          ? '거래처 삭제용 Supabase SQL이 아직 적용되지 않았습니다. v1.8 SQL을 먼저 실행하세요.'
+          : message
+      );
+    }finally{
+      setLoading(false);
+    }
+  }
+
   async function deleteProduct(product){
     const stock=Number(product.quantity||0);
     const firstMessage=stock>0
@@ -158,7 +197,7 @@ function App(){
 
   const isAdmin=profile?.role==='admin';
   const today=new Date().toLocaleDateString('en-CA');
-  const filtered=products.filter(p=>[p.name,p.sku,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()));
+  const filtered=products.filter(p=>[p.name,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()));
   const outgoing=logs.filter(l=>l.movement_type==='out');
   const stats=Object.entries(outgoing.reduce((acc,l)=>{
     acc[l.product_name]=(acc[l.product_name]||0)+Number(l.quantity);
@@ -188,7 +227,13 @@ function App(){
       </section>
 
       <nav>
-        {[['inventory',Box,'재고'],['logs',Truck,'입출고'],['customers',Users,'거래처'],['stats',BarChart3,'통계']].map(([id,Icon,title])=>
+        {[
+          ['inventory',Box,'재고'],
+          ['logs',Truck,'입출고'],
+          ['customers',Users,'거래처'],
+          ['stats',BarChart3,'통계'],
+          ...(isAdmin?[['employees',UserCog,'직원관리']]:[])
+        ].map(([id,Icon,title])=>
           <button className={tab===id?'active':''} onClick={()=>setTab(id)} key={id}><Icon size={18}/>{title}</button>
         )}
       </nav>
@@ -196,16 +241,15 @@ function App(){
       {tab==='inventory'&&
         <section className="panel">
           <div className="toolbar">
-            <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품명, 모델명, 사이즈, 색상 검색"/></div>
+            <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품명, 사이즈, 색상 검색"/></div>
             {isAdmin&&<button className="primary" onClick={()=>setProductModal(emptyProduct)}><Plus size={18}/>상품 등록</button>}
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>상품</th><th>모델명</th><th>사이즈</th><th>색상</th><th>재고</th><th>상태</th><th></th></tr></thead>
+              <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>재고</th><th>상태</th><th></th></tr></thead>
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
                   <td><b>{p.name}</b><small>{p.category}</small></td>
-                  <td>{p.sku||'-'}</td>
                   <td>{p.size||'없음'}</td>
                   <td>{p.color||'없음'}</td>
                   <td><b>{p.quantity}</b> <small>/ 최소 {p.minimum_quantity}</small></td>
@@ -216,7 +260,7 @@ function App(){
                     {isAdmin&&<button className="danger-button" onClick={()=>deleteProduct(p)}>삭제</button>}
                   </div></td>
                 </tr>)}
-                {!filtered.length&&<tr><td colSpan="7"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
+                {!filtered.length&&<tr><td colSpan="6"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
               </tbody>
             </table>
           </div>
@@ -224,8 +268,9 @@ function App(){
       }
 
       {tab==='logs'&&<Logs logs={logs}/>}
-      {tab==='customers'&&<Customers customers={customers} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal}/>}
+      {tab==='customers'&&<Customers customers={customers} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
       {tab==='stats'&&<section className="panel"><h3 className="panel-title">상품별 누적 출고</h3><div className="bars">{stats.map(([name,value])=><div className="bar" key={name}><span>{name}</span><i style={{width:`${Math.max(8,value/(stats[0]?.[1]||1)*100)}%`}}></i><b>{value}</b></div>)}{!stats.length&&<Empty text="출고 통계가 아직 없습니다."/>}</div></section>}
+      {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
 
       <footer><ShieldCheck size={14}/> 자동 로그인 유지 · 실시간 동기화 · v{APP_VERSION}</footer>
     </main>
@@ -330,7 +375,6 @@ function ProductModal({value,onClose,onSaved}){
     setSaving(true);setError('');
     const payload={
       name:form.name.trim(),
-      sku:form.sku.trim(),
       category:form.category.trim(),
       size:form.size,
       color:form.color,
@@ -342,17 +386,16 @@ function ProductModal({value,onClose,onSaved}){
     try{
       const result=form.id
         ?await supabase.from('products').update(payload).eq('id',form.id)
-        :await supabase.from('products').insert(payload);
+        :await supabase.from('products').insert({...payload,sku:null});
       if(result.error)throw result.error;
       onSaved();
     }catch(e){
-      setError(normalizeError(e).includes('duplicate')?'이미 사용 중인 모델명입니다.':normalizeError(e));
+      setError(normalizeError(e));
     }finally{setSaving(false)}
   }
   return <Modal title={form.id?'상품 수정':'상품 등록'} onClose={onClose}>
     <form onSubmit={save} className="form-grid">
       <Field label="상품명" value={form.name} set={v=>setForm({...form,name:v})}/>
-      <Field label="모델명" value={form.sku} set={v=>setForm({...form,sku:v})}/>
       <Select label="사이즈" value={form.size} set={v=>setForm({...form,size:v})} options={['없음','소','중','대']}/>
       <Select label="색상" value={form.color} set={v=>setForm({...form,color:v})} options={['없음','투명','검정','기타']}/>
       <Field label="카테고리" value={form.category} set={v=>setForm({...form,category:v})}/>
@@ -474,7 +517,7 @@ function postcode(done){
   new window.daum.Postcode({oncomplete:done}).open({popupTitle:'OTO 주소검색'});
 }
 
-function Customers({customers,logs,isAdmin,onAdd,onEdit}){
+function Customers({customers,logs,isAdmin,onAdd,onEdit,onDelete}){
   const [query,setQuery]=useState('');
   const [selectedId,setSelectedId]=useState('');
   const [from,setFrom]=useState('');
@@ -570,6 +613,7 @@ function Customers({customers,logs,isAdmin,onAdd,onEdit}){
             <div className="customer-card-actions">
               <button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>출고내역</button>
               {isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}
+              {isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}
             </div>
           </article>
         })}
@@ -629,6 +673,192 @@ function Customers({customers,logs,isAdmin,onAdd,onEdit}){
       </aside>
     </div>
   </section>;
+}
+
+
+function EmployeeManagement({session,currentUserId}){
+  const [employees,setEmployees]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [createOpen,setCreateOpen]=useState(false);
+  const [busyId,setBusyId]=useState('');
+
+  async function api(action,payload={}){
+    const response=await fetch('/api/admin-users',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${session.access_token}`
+      },
+      body:JSON.stringify({action,...payload})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||'직원 관리 요청을 처리하지 못했습니다.');
+    return data;
+  }
+
+  async function load(){
+    setLoading(true);
+    setError('');
+    try{
+      const data=await api('list');
+      setEmployees(data.users||[]);
+    }catch(e){
+      setError(normalizeError(e));
+    }finally{
+      setLoading(false);
+    }
+  }
+
+  useEffect(()=>{load()},[]);
+
+  async function createEmployee(form){
+    setError('');
+    try{
+      await api('create',{employee:form});
+      setCreateOpen(false);
+      await load();
+      window.alert('직원 계정이 생성되었습니다.');
+    }catch(e){
+      throw e;
+    }
+  }
+
+  async function changeRole(employee){
+    const nextRole=employee.role==='admin'?'staff':'admin';
+    if(employee.id===currentUserId&&nextRole!=='admin'){
+      window.alert('현재 로그인한 자신의 관리자 권한은 해제할 수 없습니다.');
+      return;
+    }
+    if(!window.confirm(`${employee.name}님의 권한을 ${nextRole==='admin'?'관리자':'직원'}로 변경할까요?`))return;
+    setBusyId(employee.id);
+    try{
+      await api('set_role',{user_id:employee.id,role:nextRole});
+      await load();
+    }catch(e){setError(normalizeError(e))}
+    finally{setBusyId('')}
+  }
+
+  async function toggleActive(employee){
+    if(employee.id===currentUserId&&!employee.active){
+      return;
+    }
+    if(employee.id===currentUserId&&employee.active){
+      window.alert('현재 로그인한 자신의 계정은 중지할 수 없습니다.');
+      return;
+    }
+    const next=!employee.active;
+    if(!window.confirm(`${employee.name}님의 계정을 ${next?'활성화':'중지'}할까요?`))return;
+    setBusyId(employee.id);
+    try{
+      await api('set_active',{user_id:employee.id,active:next});
+      await load();
+    }catch(e){setError(normalizeError(e))}
+    finally{setBusyId('')}
+  }
+
+  async function resetPassword(employee){
+    const password=window.prompt(`${employee.name}님의 새 비밀번호를 입력하세요.\n8자 이상을 권장합니다.`);
+    if(password===null)return;
+    if(password.length<6){
+      window.alert('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+    const confirmPassword=window.prompt('새 비밀번호를 한 번 더 입력하세요.');
+    if(password!==confirmPassword){
+      window.alert('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    setBusyId(employee.id);
+    try{
+      await api('reset_password',{user_id:employee.id,password});
+      window.alert('비밀번호가 변경되었습니다.');
+    }catch(e){setError(normalizeError(e))}
+    finally{setBusyId('')}
+  }
+
+  return <section className="panel employee-panel">
+    <div className="toolbar">
+      <div>
+        <h3 className="employee-title">직원 계정 관리</h3>
+        <p className="employee-subtitle">직원 생성, 권한 변경, 계정 중지와 비밀번호 변경을 관리합니다.</p>
+      </div>
+      <button className="primary" onClick={()=>setCreateOpen(true)}><Plus size={18}/>직원 추가</button>
+    </div>
+
+    {error&&<div className="error employee-error">{error}</div>}
+
+    <div className="employee-list">
+      {loading&&<div className="employee-loading">직원 목록을 불러오는 중…</div>}
+      {!loading&&employees.map(employee=>
+        <article key={employee.id} className={!employee.active?'inactive':''}>
+          <div className="employee-avatar">{employee.name?.slice(0,1)||'직'}</div>
+          <div className="employee-info">
+            <div>
+              <b>{employee.name}</b>
+              {employee.id===currentUserId&&<span className="self-badge">내 계정</span>}
+              <span className={`role-badge ${employee.role}`}>{employee.role==='admin'?'관리자':'직원'}</span>
+              <span className={`active-badge ${employee.active?'on':'off'}`}>{employee.active?'사용 중':'중지됨'}</span>
+            </div>
+            <small>아이디: {employee.login_id}</small>
+            <small>최근 로그인: {employee.last_sign_in_at?new Date(employee.last_sign_in_at).toLocaleString('ko-KR'):'로그인 기록 없음'}</small>
+          </div>
+          <div className="employee-actions">
+            <button disabled={busyId===employee.id} onClick={()=>resetPassword(employee)}><KeyRound size={16}/>비밀번호</button>
+            <button disabled={busyId===employee.id||employee.id===currentUserId} onClick={()=>changeRole(employee)}><ShieldCheck size={16}/>{employee.role==='admin'?'직원으로':'관리자로'}</button>
+            <button className={employee.active?'danger-button':'activate-button'} disabled={busyId===employee.id||employee.id===currentUserId} onClick={()=>toggleActive(employee)}>
+              {employee.active?<UserX size={16}/>:<UserCheck size={16}/>}
+              {employee.active?'계정 중지':'계정 활성화'}
+            </button>
+          </div>
+        </article>
+      )}
+      {!loading&&!employees.length&&<Empty text="등록된 직원이 없습니다."/>}
+    </div>
+
+    {createOpen&&<EmployeeCreateModal onClose={()=>setCreateOpen(false)} onCreate={createEmployee}/>}
+  </section>;
+}
+
+function EmployeeCreateModal({onClose,onCreate}){
+  const [form,setForm]=useState({login_id:'',name:'',password:'',role:'staff'});
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+
+  async function submit(event){
+    event.preventDefault();
+    const login=form.login_id.trim().toLowerCase();
+    if(!/^[a-z0-9._-]{3,30}$/.test(login)){
+      setError('아이디는 영문 소문자, 숫자, 마침표, 밑줄, 하이픈으로 3~30자 입력하세요.');
+      return;
+    }
+    if(form.password.length<6){
+      setError('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+    setSaving(true);setError('');
+    try{
+      await onCreate({...form,login_id:login,name:form.name.trim()});
+    }catch(e){
+      setError(normalizeError(e));
+    }finally{
+      setSaving(false);
+    }
+  }
+
+  return <Modal title="직원 계정 추가" onClose={onClose}>
+    <form onSubmit={submit} className="form-grid">
+      <Field label="직원 이름" value={form.name} set={v=>setForm({...form,name:v})} full/>
+      <Field label="로그인 아이디" value={form.login_id} set={v=>setForm({...form,login_id:v})}/>
+      <Field label="초기 비밀번호" type="password" value={form.password} set={v=>setForm({...form,password:v})}/>
+      <Select label="권한" value={form.role} set={v=>setForm({...form,role:v})} options={['staff','admin']} labels={{staff:'직원',admin:'관리자'}}/>
+      <div className="employee-id-help full">
+        아이디 <b>{form.login_id||'employee'}</b>는 내부적으로 <code>{form.login_id||'employee'}@login.otolab.co.kr</code> 계정으로 안전하게 생성됩니다.
+      </div>
+      {error&&<div className="error full">{error}</div>}
+      <button className="primary full" disabled={saving}>{saving?'생성 중…':'직원 계정 만들기'}</button>
+    </form>
+  </Modal>;
 }
 
 function Logs({logs}){
