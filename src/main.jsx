@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='2.1.0';
+const APP_VERSION='2.2.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -216,11 +216,6 @@ function App(){
   const isAdmin=profile?.role==='admin';
   const today=new Date().toLocaleDateString('en-CA');
   const filtered=products.filter(p=>[p.name,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()));
-  const outgoing=logs.filter(l=>l.movement_type==='out');
-  const stats=Object.entries(outgoing.reduce((acc,l)=>{
-    acc[l.product_name]=(acc[l.product_name]||0)+Number(l.quantity);
-    return acc;
-  },{})).sort((a,b)=>b[1]-a[1]).slice(0,8);
 
   return <div className="app">
     <header>
@@ -249,7 +244,6 @@ function App(){
           ['inventory',Box,'재고'],
           ['logs',Truck,'입출고'],
           ['customers',Users,'거래처'],
-          ['stats',BarChart3,'통계'],
           ...(isAdmin?[['employees',UserCog,'직원관리']]:[])
         ].map(([id,Icon,title])=>
           <button className={tab===id?'active':''} onClick={()=>setTab(id)} key={id}><Icon size={18}/>{title}</button>
@@ -273,7 +267,6 @@ function App(){
                   <td><b>{p.quantity}</b> <small>/ 최소 {p.minimum_quantity}</small></td>
                   <td><Badge p={p}/></td>
                   <td><div className="row-actions">
-                    <button onClick={()=>setMoveModal(p)}>입출고</button>
                     {isAdmin&&<button onClick={()=>setProductModal(p)}>수정</button>}
                     {isAdmin&&<button className="danger-button" onClick={()=>deleteProduct(p)}>삭제</button>}
                   </div></td>
@@ -285,16 +278,49 @@ function App(){
         </section>
       }
 
-      {tab==='logs'&&<Logs logs={logs}/>}
+      {tab==='logs'&&<Logs logs={logs} products={products} onMove={setMoveModal}/>}
       {tab==='customers'&&<Customers customers={customers} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
-      {tab==='stats'&&<section className="panel"><h3 className="panel-title">상품별 누적 출고</h3><div className="bars">{stats.map(([name,value])=><div className="bar" key={name}><span>{name}</span><i style={{width:`${Math.max(8,value/(stats[0]?.[1]||1)*100)}%`}}></i><b>{value}</b></div>)}{!stats.length&&<Empty text="출고 통계가 아직 없습니다."/>}</div></section>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
 
       <footer><ShieldCheck size={14}/> 자동 로그인 유지 · 실시간 동기화 · v{APP_VERSION}</footer>
     </main>
 
     {productModal&&<ProductModal value={productModal} onClose={()=>setProductModal(null)} onSaved={()=>{setProductModal(null);loadAll()}}/>}
-    {moveModal&&<MoveModal product={moveModal} customers={customers} profile={profile} user={session.user} onClose={()=>setMoveModal(null)} onSaved={()=>{setMoveModal(null);loadAll()}}/>}
+    {moveModal&&<MoveModal
+      product={moveModal}
+      customers={customers}
+      profile={profile}
+      user={session.user}
+      onClose={()=>setMoveModal(null)}
+      onSaved={(movement)=>{
+        const delta=movement.type==='in'?Number(movement.quantity):-Number(movement.quantity);
+        setProducts(current=>current.map(item=>
+          item.id===movement.product_id
+            ? {...item,quantity:Number(item.quantity||0)+delta}
+            : item
+        ));
+        setLogs(current=>[{
+          id:`temp-${Date.now()}`,
+          product_id:movement.product_id,
+          product_name:movement.product_name,
+          movement_type:movement.type,
+          quantity:Number(movement.quantity),
+          staff_name:profile.name,
+          customer_id:movement.customer_id||null,
+          customer_name:movement.customer_name||null,
+          recipient_name:movement.recipient_name||null,
+          destination:movement.destination||null,
+          destination_detail:movement.destination_detail||null,
+          courier:movement.courier||null,
+          tracking_number:movement.tracking_number||null,
+          order_number:movement.order_number||null,
+          memo:movement.memo||null,
+          created_at:new Date().toISOString()
+        },...current]);
+        setMoveModal(null);
+        setTimeout(()=>loadAll({silent:true}),500);
+      }}
+    />}
     {customerModal&&<CustomerModal value={customerModal} onClose={()=>setCustomerModal(null)} onSaved={()=>{setCustomerModal(null);loadAll()}}/>}
     {loading&&<div className="loading">데이터를 안전하게 불러오는 중…</div>}
   </div>;
@@ -464,7 +490,22 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
         p_memo:form.memo||null
       });
       if(error)throw error;
-      onSaved();
+      const selectedCustomer=customers.find(c=>c.id===form.customer_id);
+      onSaved({
+        product_id:product.id,
+        product_name:product.name,
+        type:form.type,
+        quantity:Number(form.qty),
+        customer_id:form.customer_id||null,
+        customer_name:selectedCustomer?.name||null,
+        recipient_name:form.recipient_name||null,
+        destination:form.address||null,
+        destination_detail:form.address_detail||null,
+        courier:form.courier||null,
+        tracking_number:form.tracking||null,
+        order_number:form.order||null,
+        memo:form.memo||null
+      });
     }catch(e){
       const msg=normalizeError(e);
       setError(msg.includes('process_stock_movement')?'출고 처리 함수가 없습니다. Supabase SQL 설정을 확인하세요.':msg);
@@ -920,7 +961,8 @@ function EmployeeCreateModal({onClose,onCreate}){
   </Modal>;
 }
 
-function Logs({logs}){
+function Logs({logs,products,onMove}){
+  const [selectedProductId,setSelectedProductId]=useState('');
   const [query,setQuery]=useState('');
   const [type,setType]=useState('');
   const [from,setFrom]=useState('');
@@ -951,7 +993,32 @@ function Logs({logs}){
     downloadCsv(data,`OTO_입출고_${new Date().toISOString().slice(0,10)}.csv`);
   }
 
+  const selectedProduct=products.find(product=>product.id===selectedProductId)||null;
+
   return <section className="panel">
+    <div className="movement-entry">
+      <div>
+        <h3 className="panel-title">입출고 등록</h3>
+        <p>상품을 선택한 뒤 입고 또는 출고 내용을 입력하세요.</p>
+      </div>
+      <div className="movement-entry-controls">
+        <select value={selectedProductId} onChange={event=>setSelectedProductId(event.target.value)}>
+          <option value="">상품 선택</option>
+          {products.map(product=>
+            <option key={product.id} value={product.id}>
+              {product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {product.quantity}
+            </option>
+          )}
+        </select>
+        <button
+          className="primary"
+          disabled={!selectedProduct}
+          onClick={()=>selectedProduct&&onMove(selectedProduct)}
+        >
+          <Plus size={18}/>입출고 등록
+        </button>
+      </div>
+    </div>
     <div className="log-filter">
       <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품, 거래처, 송장번호, 담당자 검색"/></div>
       <select value={type} onChange={e=>setType(e.target.value)}><option value="">전체 구분</option><option value="in">입고</option><option value="out">출고</option></select>

@@ -460,3 +460,62 @@ nav button.active{
     border-radius:25px;
   }
 }
+
+
+/* v2.2 입출고 메뉴 등록 영역 */
+.movement-entry{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 20px;
+  margin-bottom:16px;
+  border:1px solid #e4e8f0;
+  border-radius:16px;
+  background:#f8faff;
+}
+
+.movement-entry h3{
+  margin:0 0 4px;
+}
+
+.movement-entry p{
+  margin:0;
+  color:#697386;
+  font-size:13px;
+}
+
+.movement-entry-controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:48%;
+}
+
+.movement-entry-controls select{
+  flex:1;
+  min-width:260px;
+}
+
+.movement-entry-controls button:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+@media(max-width:760px){
+  .movement-entry{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .movement-entry-controls{
+    min-width:0;
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .movement-entry-controls select{
+    min-width:0;
+    width:100%;
+  }
+}
