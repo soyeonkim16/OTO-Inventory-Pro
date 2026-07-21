@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='2.3.0';
+const APP_VERSION='2.3.1';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -177,7 +177,11 @@ function App(){
       }
 
       setTimeout(()=>loadAll({silent:true}),400);
-      window.alert('입출고 내역이 삭제되고 재고가 원상복구되었습니다.');
+      if(result?.product_missing){
+        window.alert('연결된 상품이 이미 삭제되어 입출고 내역만 삭제했습니다.');
+      }else{
+        window.alert('입출고 내역이 삭제되고 재고가 원상복구되었습니다.');
+      }
     }catch(e){
       const message=normalizeError(e);
       setError(
