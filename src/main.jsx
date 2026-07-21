@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='1.9.0';
+const APP_VERSION='2.0.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -684,16 +684,33 @@ function EmployeeManagement({session,currentUserId}){
   const [busyId,setBusyId]=useState('');
 
   async function api(action,payload={}){
-    const response=await fetch('/api/admin-users',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${session.access_token}`
-      },
-      body:JSON.stringify({action,...payload})
-    });
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(data.error||'직원 관리 요청을 처리하지 못했습니다.');
+    let response;
+    try{
+      response=await fetch('/api/admin-users',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':`Bearer ${session.access_token}`
+        },
+        body:JSON.stringify({action,...payload})
+      });
+    }catch{
+      throw new Error('직원관리 서버에 연결하지 못했습니다. Netlify Functions 배포 상태를 확인하세요.');
+    }
+
+    const raw=await response.text();
+    let data={};
+    try{data=raw?JSON.parse(raw):{}}catch{}
+
+    if(!response.ok){
+      if(response.status===404){
+        throw new Error('직원관리 서버 함수가 배포되지 않았습니다. GitHub 전체 프로젝트로 다시 배포하세요.');
+      }
+      if(response.status===500&&String(data.error||'').includes('환경변수')){
+        throw new Error(data.error);
+      }
+      throw new Error(data.error||`직원 관리 요청 실패 (${response.status})`);
+    }
     return data;
   }
 
@@ -777,6 +794,27 @@ function EmployeeManagement({session,currentUserId}){
     finally{setBusyId('')}
   }
 
+  async function deleteEmployee(employee){
+    if(employee.id===currentUserId){
+      window.alert('현재 로그인한 자신의 계정은 삭제할 수 없습니다.');
+      return;
+    }
+    if(!window.confirm(`${employee.name}님의 계정을 완전히 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`))return;
+    const typed=window.prompt(`삭제 확인을 위해 로그인 아이디 "${employee.login_id}"를 그대로 입력하세요.`);
+    if(typed!==employee.login_id){
+      if(typed!==null)window.alert('아이디가 일치하지 않아 삭제하지 않았습니다.');
+      return;
+    }
+    setBusyId(employee.id);
+    setError('');
+    try{
+      await api('delete_user',{user_id:employee.id});
+      await load();
+      window.alert('직원 계정이 삭제되었습니다.');
+    }catch(e){setError(normalizeError(e))}
+    finally{setBusyId('')}
+  }
+
   return <section className="panel employee-panel">
     <div className="toolbar">
       <div>
@@ -809,6 +847,9 @@ function EmployeeManagement({session,currentUserId}){
             <button className={employee.active?'danger-button':'activate-button'} disabled={busyId===employee.id||employee.id===currentUserId} onClick={()=>toggleActive(employee)}>
               {employee.active?<UserX size={16}/>:<UserCheck size={16}/>}
               {employee.active?'계정 중지':'계정 활성화'}
+            </button>
+            <button className="danger-button" disabled={busyId===employee.id||employee.id===currentUserId} onClick={()=>deleteEmployee(employee)}>
+              삭제
             </button>
           </div>
         </article>
