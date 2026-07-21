@@ -519,3 +519,42 @@ nav button.active{
     width:100%;
   }
 }
+
+
+/* v2.3 입출고 내역 삭제 */
+.log-list article{
+  position:relative;
+  padding-right:82px;
+}
+
+.log-delete-button{
+  position:absolute;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#b42318;
+  background:#fff5f4;
+  border:1px solid #fecdca;
+  padding:7px 11px;
+  border-radius:9px;
+  font-weight:600;
+}
+
+.log-delete-button:hover{
+  background:#fee4e2;
+  border-color:#fda29b;
+}
+
+@media(max-width:600px){
+  .log-list article{
+    padding-right:14px;
+    padding-bottom:54px;
+  }
+
+  .log-delete-button{
+    top:auto;
+    right:14px;
+    bottom:12px;
+    transform:none;
+  }
+}

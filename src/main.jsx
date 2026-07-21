@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='2.2.0';
+const APP_VERSION='2.3.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -140,6 +140,55 @@ function App(){
 
   if(!authReady)return <div className="auth-blank" aria-hidden="true"/>;
   if(!session)return <Login/>;
+
+  async function deleteStockLog(log){
+    if(String(log.id||'').startsWith('temp-')){
+      window.alert('방금 등록한 내역을 서버와 동기화하는 중입니다. 잠시 후 다시 시도하세요.');
+      return;
+    }
+
+    const movementLabel=log.movement_type==='in'?'입고':'출고';
+    const stockEffect=log.movement_type==='in'
+      ? `재고가 ${Number(log.quantity).toLocaleString()}개 감소합니다.`
+      : `재고가 ${Number(log.quantity).toLocaleString()}개 다시 증가합니다.`;
+
+    if(!window.confirm(
+      `${movementLabel} 내역을 삭제할까요?\n\n상품: ${log.product_name}\n수량: ${Number(log.quantity).toLocaleString()}개\n${stockEffect}\n\n삭제 후 되돌릴 수 없습니다.`
+    ))return;
+
+    setLoading(true);
+    setError('');
+    try{
+      const {data,error}=await supabase.rpc('delete_stock_log_safely',{p_log_id:log.id});
+      if(error)throw error;
+
+      const result=Array.isArray(data)?data[0]:data;
+      const delta=Number(result?.stock_delta||(
+        log.movement_type==='in'?-Number(log.quantity):Number(log.quantity)
+      ));
+
+      setLogs(current=>current.filter(item=>item.id!==log.id));
+      if(log.product_id){
+        setProducts(current=>current.map(product=>
+          product.id===log.product_id
+            ? {...product,quantity:Number(product.quantity||0)+delta}
+            : product
+        ));
+      }
+
+      setTimeout(()=>loadAll({silent:true}),400);
+      window.alert('입출고 내역이 삭제되고 재고가 원상복구되었습니다.');
+    }catch(e){
+      const message=normalizeError(e);
+      setError(
+        message.includes('delete_stock_log_safely')
+          ? '입출고 삭제용 Supabase SQL이 아직 적용되지 않았습니다. v2.3 SQL을 먼저 실행하세요.'
+          : message
+      );
+    }finally{
+      setLoading(false);
+    }
+  }
 
   async function deleteCustomer(customer){
     const relatedLogs=logs.filter(log=>
@@ -278,7 +327,7 @@ function App(){
         </section>
       }
 
-      {tab==='logs'&&<Logs logs={logs} products={products} onMove={setMoveModal}/>}
+      {tab==='logs'&&<Logs logs={logs} products={products} isAdmin={isAdmin} onMove={setMoveModal} onDelete={deleteStockLog}/>}
       {tab==='customers'&&<Customers customers={customers} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
 
@@ -961,7 +1010,7 @@ function EmployeeCreateModal({onClose,onCreate}){
   </Modal>;
 }
 
-function Logs({logs,products,onMove}){
+function Logs({logs,products,isAdmin,onMove,onDelete}){
   const [selectedProductId,setSelectedProductId]=useState('');
   const [query,setQuery]=useState('');
   const [type,setType]=useState('');
@@ -1032,6 +1081,7 @@ function Logs({logs,products,onMove}){
         <span className={log.movement_type}>{log.movement_type==='in'?'입고':'출고'}</span>
         <div><b>{log.product_name}</b><small>{new Date(log.created_at).toLocaleString('ko-KR')} · {log.staff_name}</small>{log.movement_type==='out'&&<p>{[log.customer_name,log.recipient_name,[log.destination,log.destination_detail].filter(Boolean).join(' '),log.tracking_number].filter(Boolean).join(' · ')}</p>}</div>
         <strong>{log.movement_type==='in'?'+':'-'}{log.quantity}</strong>
+        {isAdmin&&<button className="log-delete-button" onClick={()=>onDelete(log)}>삭제</button>}
       </article>)}
       {!rows.length&&<Empty text="조건에 맞는 입출고 기록이 없습니다."/>}
     </div>
