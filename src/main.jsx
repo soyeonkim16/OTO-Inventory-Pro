@@ -141,6 +141,34 @@ function App(){
   if(!authReady)return <div className="auth-blank" aria-hidden="true"/>;
   if(!session)return <Login/>;
 
+  async function handleLogout(){
+    setLoading(true);
+    setError('');
+    try{
+      const {error}=await supabase.auth.signOut({scope:'local'});
+      if(error)throw error;
+    }catch(e){
+      console.error('logout failed',e);
+      setError('로그아웃 처리 중 오류가 발생했습니다. 세션을 초기화합니다.');
+    }finally{
+      setSession(null);
+      setProfile(null);
+      setProducts([]);
+      setLogs([]);
+      setCustomers([]);
+      try{
+        Object.keys(localStorage).forEach(key=>{
+          if(key.startsWith('sb-')||key.includes('supabase'))localStorage.removeItem(key);
+        });
+        Object.keys(sessionStorage).forEach(key=>{
+          if(key.startsWith('sb-')||key.includes('supabase'))sessionStorage.removeItem(key);
+        });
+      }catch(_e){}
+      setLoading(false);
+      window.location.replace('/');
+    }
+  }
+
   async function deleteStockLog(log){
     if(String(log.id||'').startsWith('temp-')){
       window.alert('방금 등록한 내역을 서버와 동기화하는 중입니다. 잠시 후 다시 시도하세요.');
@@ -278,7 +306,7 @@ function App(){
       </div>
       <div className="header-actions">
         <button className="ghost" onClick={()=>loadAll()} aria-label="새로고침"><RefreshCw size={17}/></button>
-        <button className="ghost" onClick={()=>supabase.auth.signOut()}><LogOut size={17}/><span>로그아웃</span></button>
+        <button className="ghost" onClick={handleLogout} disabled={loading}><LogOut size={17}/><span>로그아웃</span></button>
       </div>
     </header>
 
