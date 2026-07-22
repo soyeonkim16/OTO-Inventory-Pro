@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='3.0.0';
+const APP_VERSION='3.1.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -17,8 +17,8 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
   realtime:{params:{eventsPerSecond:4}}
 });
 
-const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,memo:''};
-const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',memo:''};
+const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,wholesale_price:0,retail_price:0,memo:''};
+const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',price_type:'wholesale',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 
 
@@ -311,12 +311,14 @@ function App(){
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>재고</th><th>상태</th><th></th></tr></thead>
+              <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>도매가</th><th>소매가</th><th>재고</th><th>상태</th><th></th></tr></thead>
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
                   <td><b>{p.name}</b><small>{p.category}</small></td>
                   <td>{p.size||'없음'}</td>
                   <td>{p.color||'없음'}</td>
+                  <td>{Number(p.wholesale_price||0).toLocaleString()}원</td>
+                  <td>{Number(p.retail_price||0).toLocaleString()}원</td>
                   <td><b>{p.quantity}</b> <small>/ 최소 {p.minimum_quantity}</small></td>
                   <td><Badge p={p}/></td>
                   <td><div className="row-actions">
@@ -324,7 +326,7 @@ function App(){
                     {isAdmin&&<button className="danger-button" onClick={()=>deleteProduct(p)}>삭제</button>}
                   </div></td>
                 </tr>)}
-                {!filtered.length&&<tr><td colSpan="6"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
+                {!filtered.length&&<tr><td colSpan="8"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
               </tbody>
             </table>
           </div>
@@ -477,6 +479,8 @@ function ProductModal({value,onClose,onSaved}){
       color:form.color,
       quantity:Number(form.quantity),
       minimum_quantity:Number(form.minimum_quantity),
+      wholesale_price:Number(form.wholesale_price||0),
+      retail_price:Number(form.retail_price||0),
       memo:form.memo?.trim()||null,
       updated_at:new Date().toISOString()
     };
@@ -498,6 +502,8 @@ function ProductModal({value,onClose,onSaved}){
       <Field label="카테고리" value={form.category} set={v=>setForm({...form,category:v})}/>
       <Field label="현재 수량" type="number" value={form.quantity} set={v=>setForm({...form,quantity:v})}/>
       <Field label="최소 수량" type="number" value={form.minimum_quantity} set={v=>setForm({...form,minimum_quantity:v})}/>
+      <Field label="도매 단가" type="number" value={form.wholesale_price||0} set={v=>setForm({...form,wholesale_price:v})}/>
+      <Field label="소매 단가" type="number" value={form.retail_price||0} set={v=>setForm({...form,retail_price:v})}/>
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
@@ -599,7 +605,7 @@ function CustomerModal({value,onClose,onSaved}){
     if(saving)return;
     setSaving(true);setError('');
     try{
-      const payload={name:form.name.trim(),recipient_name:form.recipient_name?.trim()||null,phone:form.phone?.trim()||null,postal_code:form.postal_code||null,address:form.address||null,address_detail:form.address_detail?.trim()||null,courier:form.courier||null,memo:form.memo?.trim()||null};
+      const payload={name:form.name.trim(),recipient_name:form.recipient_name?.trim()||null,phone:form.phone?.trim()||null,postal_code:form.postal_code||null,address:form.address||null,address_detail:form.address_detail?.trim()||null,courier:form.courier||null,price_type:form.price_type||'wholesale',memo:form.memo?.trim()||null};
       const result=form.id?await supabase.from('customers').update(payload).eq('id',form.id):await supabase.from('customers').insert(payload);
       if(result.error)throw result.error;
       onSaved();
@@ -617,6 +623,7 @@ function CustomerModal({value,onClose,onSaved}){
       </div>
       <Field label="상세주소" value={form.address_detail||''} set={v=>setForm({...form,address_detail:v})} full/>
       <Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
+      <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','retail']} labels={{wholesale:'도매가',retail:'소매가'}}/>
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})}/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
@@ -759,7 +766,7 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
                 <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th>
                 <th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th>
                 <th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th>
-                <th>주소</th>
+                <th>주소</th><th>단가 구분</th>
                 <th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th>
                 <th><button onClick={()=>changeSort('lastOut')}>최근 출고일 <span>{sortMark('lastOut')}</span></button></th>
                 <th>관리</th>
@@ -773,6 +780,7 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
                   <td>{c.recipient_name||'-'}</td>
                   <td className="customer-phone">{c.phone||'-'}</td>
                   <td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td>
+                  <td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td>
                   <td><strong>{stats.totalOut.toLocaleString()}개</strong></td>
                   <td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td>
                   <td>
@@ -793,7 +801,7 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
             const stats=customerStats[c.id]||{totalOut:0,lastOut:''};
             return <article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}>
               <div className="customer-card-head"><b>{c.name}</b><span>누적 출고 {stats.totalOut.toLocaleString()}개</span></div>
-              <small>{c.recipient_name||'-'} · {c.phone||'-'}</small>
+              <small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small>
               <p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p>
               <div className="customer-card-actions">
                 <button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>출고내역</button>
@@ -830,93 +838,78 @@ function InvoiceModal({customer,logs,products,onClose}){
   const [issueDate,setIssueDate]=useState(today);
   const [statementNo,setStatementNo]=useState(()=>today.replaceAll('-','')+'-001');
   const [note,setNote]=useState('');
+  const [priceType,setPriceType]=useState(customer.price_type||'wholesale');
   const [archiveOpen,setArchiveOpen]=useState(false);
   const [savedInvoices,setSavedInvoices]=useState(()=>{try{return JSON.parse(localStorage.getItem('oto_saved_invoices')||'[]')}catch{return []}});
-  const savedPrices=(()=>{try{return JSON.parse(localStorage.getItem('oto_product_prices')||'{}')}catch{return {}}})();
   const [items,setItems]=useState(()=>{
     const grouped={};
     logs.forEach(log=>{
       const date=new Date(log.created_at).toLocaleDateString('en-CA');
-      const product=products.find(p=>p.id===log.product_id||p.name===log.product_name);
+      const product=products.find(p=>p.id===log.product_id||String(log.product_name||'').startsWith(p.name));
       const spec=[product?.size,product?.color].filter(v=>v&&v!=='없음').join(' / ');
       const key=[date,log.product_name,spec].join('|');
-      if(!grouped[key])grouped[key]={id:key,date,name:log.product_name||'',spec,quantity:0,unitPrice:Number(savedPrices[log.product_name]||0),taxRate:10};
+      const defaultPrice=Number((customer.price_type||'wholesale')==='retail'?product?.retail_price:product?.wholesale_price)||0;
+      if(!grouped[key])grouped[key]={id:key,date,name:log.product_name||'',spec,quantity:0,unitPrice:Number(log.unit_price||defaultPrice),taxRate:10,productId:product?.id||null};
       grouped[key].quantity+=Number(log.quantity||0);
     });
     return Object.values(grouped).sort((a,b)=>a.date.localeCompare(b.date));
   });
 
-  useEffect(()=>{
-    const listener=e=>e.key==='Escape'&&onClose();
-    window.addEventListener('keydown',listener);
-    return()=>window.removeEventListener('keydown',listener);
-  },[onClose]);
-
+  useEffect(()=>{const listener=e=>e.key==='Escape'&&onClose();window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener)},[onClose]);
   function updateSupplier(key,value){setSupplier(current=>({...current,[key]:value}))}
   function updateItem(index,key,value){setItems(current=>current.map((item,i)=>i===index?{...item,[key]:value}:item))}
-  function addItem(){setItems(current=>[...current,{id:'new-'+Date.now(),date:issueDate,name:'',spec:'',quantity:1,unitPrice:0,taxRate:10}])}
+  function addItem(){setItems(current=>[...current,{id:'new-'+Date.now(),date:issueDate,name:'',spec:'',quantity:1,unitPrice:0,taxRate:10,productId:null}])}
+  function applyPriceType(nextType){
+    setPriceType(nextType);
+    setItems(current=>current.map(item=>{
+      const product=products.find(p=>p.id===item.productId||String(item.name||'').startsWith(p.name));
+      return {...item,unitPrice:Number(nextType==='retail'?product?.retail_price:product?.wholesale_price)||Number(item.unitPrice||0)};
+    }));
+  }
   function saveSupplier(){localStorage.setItem('oto_invoice_supplier',JSON.stringify(supplier));alert('공급자 정보가 이 기기에 저장되었습니다.')}
   function saveInvoice(){
-    const priceMap={...savedPrices};
-    items.forEach(item=>{if(item.name)priceMap[item.name]=Number(item.unitPrice||0)});
-    localStorage.setItem('oto_product_prices',JSON.stringify(priceMap));
-    const invoice={id:statementNo+'-'+Date.now(),statementNo,issueDate,note,supplier,customer,items,createdAt:new Date().toISOString()};
-    const next=[invoice,...savedInvoices.filter(saved=>saved.statementNo!==statementNo)].slice(0,100);
-    setSavedInvoices(next);
-    localStorage.setItem('oto_saved_invoices',JSON.stringify(next));
-    alert('거래명세표를 저장했습니다.');
+    const invoice={id:statementNo+'-'+Date.now(),statementNo,issueDate,note,supplier,customer,items,priceType,createdAt:new Date().toISOString()};
+    const next=[invoice,...savedInvoices.filter(saved=>saved.statementNo!==statementNo)].slice(0,100);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));alert('거래명세표를 저장했습니다.');
   }
-  function loadInvoice(invoice){
-    setStatementNo(invoice.statementNo||statementNo);setIssueDate(invoice.issueDate||today);setNote(invoice.note||'');
-    setSupplier(invoice.supplier||supplier);setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));setArchiveOpen(false);
-  }
-  function deleteInvoice(id){
-    if(!confirm('저장된 거래명세표를 삭제할까요?'))return;
-    const next=savedInvoices.filter(invoice=>invoice.id!==id);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));
-  }
+  function loadInvoice(invoice){setStatementNo(invoice.statementNo||statementNo);setIssueDate(invoice.issueDate||today);setNote(invoice.note||'');setSupplier(invoice.supplier||supplier);setPriceType(invoice.priceType||customer.price_type||'wholesale');setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));setArchiveOpen(false)}
+  function deleteInvoice(id){if(!confirm('저장된 거래명세표를 삭제할까요?'))return;const next=savedInvoices.filter(invoice=>invoice.id!==id);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next))}
   const supplyTotal=items.reduce((sum,item)=>sum+Number(item.quantity||0)*Number(item.unitPrice||0),0);
   const taxTotal=items.reduce((sum,item)=>sum+Math.round(Number(item.quantity||0)*Number(item.unitPrice||0)*Number(item.taxRate||0)/100),0);
   const grandTotal=supplyTotal+taxTotal;
   const fmt=value=>Number(value||0).toLocaleString('ko-KR');
 
-  return <div className="invoice-overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
-    <div className="invoice-window">
-      <div className="invoice-toolbar no-print">
-        <div><b>거래명세표 미리보기</b><small>단가와 공급자 정보를 입력한 후 인쇄하세요.</small></div>
-        <div><button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(value=>!value)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button></div>
-      </div>
-      {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length? savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.statementNo}</b><span>{invoice.issueDate} · {invoice.customer?.name||'-'}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
-      <div className="invoice-sheet">
-        <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>(공급받는자 보관용)</span></div>
-        <div className="invoice-meta no-print"><label>작성일<input type="date" value={issueDate} onChange={e=>setIssueDate(e.target.value)}/></label><label>명세표 번호<input value={statementNo} onChange={e=>setStatementNo(e.target.value)}/></label></div>
-        <table className="invoice-parties"><tbody><tr>
-          <th className="vertical-label" rowSpan="5">공급받는자</th><th>상호<br/>(법인명)</th><td colSpan="3"><input value={customer.name||''} readOnly/></td>
-          <th className="vertical-label" rowSpan="5">공급자</th><th>등록번호</th><td colSpan="3"><input value={supplier.registrationNumber} onChange={e=>updateSupplier('registrationNumber',e.target.value)} placeholder="사업자등록번호"/></td>
-        </tr><tr>
-          <th>성명</th><td colSpan="3"><input value={customer.recipient_name||''} readOnly/></td><th>상호<br/>(법인명)</th><td><input value={supplier.businessName} onChange={e=>updateSupplier('businessName',e.target.value)}/></td><th>성명</th><td><input value={supplier.representative} onChange={e=>updateSupplier('representative',e.target.value)}/></td>
-        </tr><tr>
-          <th>사업장<br/>주소</th><td colSpan="3"><textarea value={[customer.address,customer.address_detail].filter(Boolean).join(' ')} readOnly/></td><th>사업장<br/>주소</th><td colSpan="3"><textarea value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/></td>
-        </tr><tr>
-          <th>전화번호</th><td colSpan="3"><input value={customer.phone||''} readOnly/></td><th>전화</th><td><input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/></td><th>팩스</th><td><input value={supplier.fax} onChange={e=>updateSupplier('fax',e.target.value)}/></td>
-        </tr><tr>
-          <th>합계금액<br/>(VAT포함)</th><td colSpan="3" className="invoice-grand-total">{fmt(grandTotal)}</td><th>작성일</th><td>{issueDate}</td><th>번호</th><td>{statementNo}</td>
-        </tr></tbody></table>
+  function StatementCopy({copyLabel,editable=false}){
+    return <section className="statement-copy">
+      <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>({copyLabel})</span></div>
+      <table className="invoice-parties"><tbody><tr>
+        <th className="vertical-label" rowSpan="4">공급받는자</th><th>상호</th><td colSpan="3">{customer.name||''}</td>
+        <th className="vertical-label" rowSpan="4">공급자</th><th>등록번호</th><td colSpan="3">{editable?<input value={supplier.registrationNumber} onChange={e=>updateSupplier('registrationNumber',e.target.value)}/>:supplier.registrationNumber}</td>
+      </tr><tr><th>성명</th><td colSpan="3">{customer.recipient_name||''}</td><th>상호</th><td>{editable?<input value={supplier.businessName} onChange={e=>updateSupplier('businessName',e.target.value)}/>:supplier.businessName}</td><th>성명</th><td>{editable?<input value={supplier.representative} onChange={e=>updateSupplier('representative',e.target.value)}/>:supplier.representative}</td></tr>
+      <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3">{editable?<input value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/>:supplier.address}</td></tr>
+      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td>{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td><th>작성일</th><td>{issueDate}</td></tr></tbody></table>
+      <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong><span>명세번호 {statementNo}</span></div>
+      <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th>{editable&&<th className="no-print">삭제</th>}</tr></thead><tbody>
+      {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
+        <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
+        <td>{editable?<input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/>:d[2]}</td>
+        <td>{editable?<input value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/>:item.name}</td><td>{editable?<input value={item.spec} onChange={e=>updateItem(index,'spec',e.target.value)}/>:item.spec}</td>
+        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td><td>{editable?<input type="number" min="0" value={item.unitPrice} onChange={e=>updateItem(index,'unitPrice',e.target.value)}/>:fmt(item.unitPrice)}</td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>{editable&&<td className="no-print"><button className="invoice-delete" onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></td>}
+      </tr>})}
+      {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>{editable&&<td className="no-print"></td>}</tr>)}
+      </tbody><tfoot><tr><th colSpan="6">합계</th><td className="money">{fmt(supplyTotal)}</td><td className="money">{fmt(taxTotal)}</td>{editable&&<td className="no-print"></td>}</tr></tfoot></table>
+      <div className="invoice-note"><b>비고</b>{editable?<textarea value={note} onChange={e=>setNote(e.target.value)}/>:<div>{note}</div>}</div>
+      <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
+    </section>
+  }
 
-        <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th><th className="no-print">삭제</th></tr></thead><tbody>
-          {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
-            <td><input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/></td>
-            <td><input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/></td>
-            <td><input value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/></td><td><input value={item.spec} onChange={e=>updateItem(index,'spec',e.target.value)}/></td>
-            <td><input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/></td><td><input type="number" min="0" value={item.unitPrice} onChange={e=>updateItem(index,'unitPrice',e.target.value)}/></td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td><td className="no-print"><button className="invoice-delete" onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></td>
-          </tr>})}
-          {Array.from({length:Math.max(0,10-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td className="no-print"></td></tr>)}
-        </tbody><tfoot><tr><th colSpan="6">합계</th><td className="money">{fmt(supplyTotal)}</td><td className="money">{fmt(taxTotal)}</td><td className="no-print"></td></tr></tfoot></table>
-        <div className="invoice-note"><b>비고</b><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="필요한 내용을 입력하세요."/></div>
-        <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
-        <div className="invoice-footer"><span>담당자: <input value={supplier.manager} onChange={e=>updateSupplier('manager',e.target.value)}/></span><span><input value={supplier.managerPhone} onChange={e=>updateSupplier('managerPhone',e.target.value)} placeholder="담당자 연락처"/></span><span>입금계좌: <input value={supplier.bankAccount} onChange={e=>updateSupplier('bankAccount',e.target.value)} placeholder="은행 / 계좌번호 / 예금주"/></span></div>
-      </div>
-    </div>
-  </div>;
+  return <div className="invoice-overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><div className="invoice-window">
+    <div className="invoice-toolbar no-print"><div><b>거래명세표 미리보기</b><small>A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.</small></div><div>
+      <label className="price-type-control">단가 <select value={priceType} onChange={e=>applyPriceType(e.target.value)}><option value="wholesale">도매가</option><option value="retail">소매가</option></select></label>
+      <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
+    </div></div>
+    {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.statementNo}</b><span>{invoice.issueDate} · {invoice.customer?.name||'-'}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
+    <div className="invoice-sheet portrait-double"><div className="invoice-meta no-print"><label>작성일<input type="date" value={issueDate} onChange={e=>setIssueDate(e.target.value)}/></label><label>명세표 번호<input value={statementNo} onChange={e=>setStatementNo(e.target.value)}/></label></div><StatementCopy copyLabel="공급받는자 보관용" editable/><div className="cut-line"><span>절 취 선</span></div><StatementCopy copyLabel="공급자 보관용"/></div>
+  </div></div>;
 }
 
 function EmployeeManagement({session,currentUserId}){

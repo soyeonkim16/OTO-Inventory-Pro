@@ -633,3 +633,45 @@ nav button.active{
 .invoice-archive-main span{color:#667085;font-size:12px}
 .invoice-archive .danger-button{color:#d92d20;border-color:#fda29b;background:#fff7f6}
 @media(max-width:760px){.invoice-archive-main{align-items:flex-start;flex-direction:column}}
+
+/* v3.1 mobile customer list + wholesale/retail pricing + A4 portrait double statement */
+.price-type-badge{display:inline-flex;align-items:center;justify-content:center;min-width:48px;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.price-type-badge.wholesale{background:#eef2ff;color:#3448c5}.price-type-badge.retail{background:#fff1e8;color:#c2410c}
+.price-type-control{display:flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid #d0d5dd;border-radius:9px;background:#fff;font-size:13px}
+.price-type-control select{border:0;background:transparent;font:inherit;font-weight:700;outline:0}
+.portrait-double{width:794px;min-height:1123px;padding:10px 12px 12px}
+.statement-copy{height:515px;display:flex;flex-direction:column;overflow:hidden}
+.statement-copy .invoice-title-row{height:42px;flex:none}
+.statement-copy .invoice-title-row h1{font-size:22px}.statement-copy .invoice-title-row span{left:auto;right:16px;top:14px;font-size:10px}
+.statement-copy .invoice-parties th,.statement-copy .invoice-parties td{height:27px;font-size:10px;padding:2px 4px}
+.statement-copy .invoice-parties .vertical-label{width:24px}
+.statement-summary{height:31px;border:2px solid #000;border-top:0;display:grid;grid-template-columns:145px 1fr 190px;align-items:center;font-size:10px}
+.statement-summary>*{height:100%;display:flex;align-items:center;padding:0 8px;border-right:1px solid #000}.statement-summary>*:last-child{border-right:0}.statement-summary strong{justify-content:flex-end;font-size:15px}.statement-summary span{justify-content:center}
+.statement-copy .invoice-items th,.statement-copy .invoice-items td{height:24px;font-size:9.5px}
+.statement-copy .invoice-items th:nth-child(3){width:170px}.statement-copy .invoice-items th:nth-child(4){width:88px}.statement-copy .invoice-items th:nth-child(5){width:52px}.statement-copy .invoice-items th:nth-child(6),.statement-copy .invoice-items th:nth-child(7),.statement-copy .invoice-items th:nth-child(8){width:78px}
+.statement-copy .invoice-empty-row td{height:20px}.statement-copy .invoice-note{min-height:34px;font-size:9.5px}.statement-copy .invoice-sign th,.statement-copy .invoice-sign td{height:27px;font-size:9.5px}
+.cut-line{height:55px;display:flex;align-items:center;justify-content:center;position:relative;flex:none}.cut-line:before{content:"";position:absolute;left:0;right:0;border-top:1px dashed #555}.cut-line span{position:relative;background:#fff;padding:0 12px;font-size:10px;letter-spacing:.35em;color:#555}
+@media(max-width:700px){
+  .customer-panel{overflow:visible!important}
+  .customer-layout{display:block!important;min-height:0!important}
+  .customer-list-area{display:block!important;width:100%!important;min-width:0!important}
+  .customer-table-wrap{display:none!important}
+  .customer-mobile-list{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;padding:12px!important;visibility:visible!important;opacity:1!important}
+  .customer-mobile-list article{display:block!important;width:auto!important;min-height:0!important;background:#fff!important}
+  .customer-history{width:100%!important;min-width:0!important;min-height:0!important}
+  .customer-history-empty{min-height:180px!important}
+  .portrait-double{width:794px!important;margin:10px!important;transform:none!important}
+}
+@media print{
+  @page{size:A4 portrait;margin:5mm}
+  .portrait-double{width:200mm!important;height:287mm!important;min-height:287mm!important;margin:0!important;padding:0!important;box-shadow:none!important;overflow:hidden!important}
+  .portrait-double .invoice-meta{display:none!important}
+  .statement-copy{height:133mm!important}
+  .cut-line{height:11mm!important}
+  .statement-copy .invoice-title-row{height:10mm!important}
+  .statement-copy .invoice-parties th,.statement-copy .invoice-parties td{height:7mm!important;font-size:8.5pt!important}
+  .statement-copy .invoice-items th,.statement-copy .invoice-items td{height:5.7mm!important;font-size:8pt!important}
+  .statement-copy .invoice-empty-row td{height:5mm!important}
+  .statement-summary{height:8mm!important}
+  .statement-copy input,.statement-copy textarea{font-size:8pt!important;padding:1mm!important}
+}
