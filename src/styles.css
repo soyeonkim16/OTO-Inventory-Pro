@@ -718,16 +718,16 @@ nav button.active{
 }
 
 /* v4.2 transaction statement layout and number formatting */
-.invoice-parties col.party-customer-vertical{width:3%}
-.invoice-parties col.party-customer-label{width:6%}
-.invoice-parties col.party-customer-data{width:16%}
+.invoice-parties col.party-customer-vertical{width:2.5%}
+.invoice-parties col.party-customer-label{width:5.5%}
+.invoice-parties col.party-customer-data{width:17%}
 .invoice-parties col.party-customer-label-sub{width:4%}
-.invoice-parties col.party-customer-data-sub{width:5%}
-.invoice-parties col.party-supplier-vertical{width:3%}
-.invoice-parties col.party-supplier-label{width:7%}
+.invoice-parties col.party-customer-data-sub{width:4%}
+.invoice-parties col.party-supplier-vertical{width:2.5%}
+.invoice-parties col.party-supplier-label{width:6%}
 .invoice-parties col.party-supplier-data{width:27%}
-.invoice-parties col.party-supplier-label-sub{width:7%}
-.invoice-parties col.party-supplier-data-sub{width:22%}
+.invoice-parties col.party-supplier-label-sub{width:6%}
+.invoice-parties col.party-supplier-data-sub{width:25.5%}
 .invoice-items .money-input{text-align:right!important;padding-right:8px!important;font-variant-numeric:tabular-nums}
 .invoice-items tfoot .total-label{text-align:right!important;padding-right:10px!important}
 .invoice-items tfoot .total-money{text-align:right!important;padding-right:8px!important;font-weight:700}
