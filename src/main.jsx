@@ -868,10 +868,10 @@ function InvoiceModal({customer,logs,products,onClose}){
   }
   function saveSupplier(){localStorage.setItem('oto_invoice_supplier',JSON.stringify(supplier));alert('공급자 정보가 이 기기에 저장되었습니다.')}
   function saveInvoice(){
-    const invoice={id:statementNo+'-'+Date.now(),statementNo,issueDate,note,supplier,customer,items,priceType,createdAt:new Date().toISOString()};
-    const next=[invoice,...savedInvoices.filter(saved=>saved.statementNo!==statementNo)].slice(0,100);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));alert('거래명세표를 저장했습니다.');
+    const invoice={id:'invoice-'+Date.now(),issueDate,note,supplier,customer,items,priceType,createdAt:new Date().toISOString()};
+    const next=[invoice,...savedInvoices].slice(0,100);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));alert('거래명세표를 저장했습니다.');
   }
-  function loadInvoice(invoice){setStatementNo(invoice.statementNo||statementNo);setIssueDate(invoice.issueDate||today);setNote(invoice.note||'');setSupplier(invoice.supplier||supplier);setPriceType(invoice.priceType||customer.price_type||'wholesale');setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));setArchiveOpen(false)}
+  function loadInvoice(invoice){setIssueDate(invoice.issueDate||today);setNote(invoice.note||'');setSupplier(invoice.supplier||supplier);setPriceType(invoice.priceType||customer.price_type||'wholesale');setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));setArchiveOpen(false)}
   function deleteInvoice(id){if(!confirm('저장된 거래명세표를 삭제할까요?'))return;const next=savedInvoices.filter(invoice=>invoice.id!==id);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next))}
   const supplyTotal=items.reduce((sum,item)=>sum+Number(item.quantity||0)*Number(item.unitPrice||0),0);
   const taxTotal=items.reduce((sum,item)=>sum+Math.round(Number(item.quantity||0)*Number(item.unitPrice||0)*Number(item.taxRate||0)/100),0);
@@ -886,8 +886,8 @@ function InvoiceModal({customer,logs,products,onClose}){
         <th className="vertical-label" rowSpan="4">공급자</th><th>등록번호</th><td colSpan="3">{editable?<input value={supplier.registrationNumber} onChange={e=>updateSupplier('registrationNumber',e.target.value)}/>:supplier.registrationNumber}</td>
       </tr><tr><th>성명</th><td colSpan="3">{customer.recipient_name||''}</td><th>상호</th><td>{editable?<input value={supplier.businessName} onChange={e=>updateSupplier('businessName',e.target.value)}/>:supplier.businessName}</td><th>성명</th><td>{editable?<input value={supplier.representative} onChange={e=>updateSupplier('representative',e.target.value)}/>:supplier.representative}</td></tr>
       <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3">{editable?<input value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/>:supplier.address}</td></tr>
-      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td>{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td><th>작성일</th><td>{issueDate}</td></tr></tbody></table>
-      <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong><span>명세번호 {statementNo}</span></div>
+      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td colSpan="3">{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td></tr></tbody></table>
+      <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
       <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th>{editable&&<th className="no-print">삭제</th>}</tr></thead><tbody>
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
         <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
@@ -897,7 +897,8 @@ function InvoiceModal({customer,logs,products,onClose}){
       </tr>})}
       {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>{editable&&<td className="no-print"></td>}</tr>)}
       </tbody><tfoot><tr><th colSpan="6">합계</th><td className="money">{fmt(supplyTotal)}</td><td className="money">{fmt(taxTotal)}</td>{editable&&<td className="no-print"></td>}</tr></tfoot></table>
-      <div className="invoice-note"><b>비고</b>{editable?<textarea value={note} onChange={e=>setNote(e.target.value)}/>:<div>{note}</div>}</div>
+      <div className="invoice-note"><b>비고</b>{editable?<textarea placeholder="비고 내용을 입력하세요" value={note} onChange={e=>setNote(e.target.value)}/>:<div>{note}</div>}</div>
+      <div className="invoice-account"><b>입금계좌</b>{editable?<input placeholder="예: 국민은행 000000-00-000000 예금주 OTO" value={supplier.bankAccount||''} onChange={e=>updateSupplier('bankAccount',e.target.value)}/>:<div>{supplier.bankAccount||''}</div>}</div>
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
     </section>
   }
@@ -907,8 +908,8 @@ function InvoiceModal({customer,logs,products,onClose}){
       <label className="price-type-control">단가 <select value={priceType} onChange={e=>applyPriceType(e.target.value)}><option value="wholesale">도매가</option><option value="retail">소매가</option></select></label>
       <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
     </div></div>
-    {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.statementNo}</b><span>{invoice.issueDate} · {invoice.customer?.name||'-'}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
-    <div className="invoice-sheet portrait-double"><div className="invoice-meta no-print"><label>작성일<input type="date" value={issueDate} onChange={e=>setIssueDate(e.target.value)}/></label><label>명세표 번호<input value={statementNo} onChange={e=>setStatementNo(e.target.value)}/></label></div><StatementCopy copyLabel="공급받는자 보관용" editable/><div className="cut-line"><span>절 취 선</span></div><StatementCopy copyLabel="공급자 보관용"/></div>
+    {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
+    <div className="invoice-sheet portrait-double"><StatementCopy copyLabel="공급받는자 보관용" editable/><div className="cut-line"><span>절 취 선</span></div><StatementCopy copyLabel="공급자 보관용"/></div>
   </div></div>;
 }
 
