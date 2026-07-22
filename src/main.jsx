@@ -836,7 +836,6 @@ function InvoiceModal({customer,logs,products,onClose}){
   const savedSupplier=(()=>{try{return JSON.parse(localStorage.getItem('oto_invoice_supplier')||'null')}catch{return null}})();
   const [supplier,setSupplier]=useState(savedSupplier||{businessName:'OTO',registrationNumber:'',representative:'',address:'',phone:'',fax:'',manager:'',managerPhone:'',bankAccount:''});
   const [issueDate,setIssueDate]=useState(today);
-  const [statementNo,setStatementNo]=useState(()=>today.replaceAll('-','')+'-001');
   const [note,setNote]=useState('');
   const [priceType,setPriceType]=useState(customer.price_type||'wholesale');
   const [archiveOpen,setArchiveOpen]=useState(false);
@@ -877,26 +876,30 @@ function InvoiceModal({customer,logs,products,onClose}){
   const taxTotal=items.reduce((sum,item)=>sum+Math.round(Number(item.quantity||0)*Number(item.unitPrice||0)*Number(item.taxRate||0)/100),0);
   const grandTotal=supplyTotal+taxTotal;
   const fmt=value=>Number(value||0).toLocaleString('ko-KR');
+  const parseMoney=value=>String(value??'').replace(/[^0-9.-]/g,'');
 
   function StatementCopy({copyLabel,editable=false}){
     return <section className="statement-copy">
       <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>({copyLabel})</span></div>
-      <table className="invoice-parties"><tbody><tr>
+      <table className="invoice-parties"><colgroup>
+        <col className="party-customer-vertical"/><col className="party-customer-label"/><col className="party-customer-data"/><col className="party-customer-label-sub"/><col className="party-customer-data-sub"/>
+        <col className="party-supplier-vertical"/><col className="party-supplier-label"/><col className="party-supplier-data"/><col className="party-supplier-label-sub"/><col className="party-supplier-data-sub"/>
+      </colgroup><tbody><tr>
         <th className="vertical-label" rowSpan="4">공급받는자</th><th>상호</th><td colSpan="3">{customer.name||''}</td>
         <th className="vertical-label" rowSpan="4">공급자</th><th>등록번호</th><td colSpan="3">{editable?<input value={supplier.registrationNumber} onChange={e=>updateSupplier('registrationNumber',e.target.value)}/>:supplier.registrationNumber}</td>
       </tr><tr><th>성명</th><td colSpan="3">{customer.recipient_name||''}</td><th>상호</th><td>{editable?<input value={supplier.businessName} onChange={e=>updateSupplier('businessName',e.target.value)}/>:supplier.businessName}</td><th>성명</th><td>{editable?<input value={supplier.representative} onChange={e=>updateSupplier('representative',e.target.value)}/>:supplier.representative}</td></tr>
       <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3">{editable?<input value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/>:supplier.address}</td></tr>
-      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td colSpan="3">{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td></tr></tbody></table>
+      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td>{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td><th>팩스</th><td>{editable?<input value={supplier.fax||''} onChange={e=>updateSupplier('fax',e.target.value)}/>:supplier.fax}</td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
       <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th>{editable&&<th className="no-print">삭제</th>}</tr></thead><tbody>
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
         <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
         <td>{editable?<input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/>:d[2]}</td>
         <td>{editable?<input value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/>:item.name}</td><td>{editable?<input value={item.spec} onChange={e=>updateItem(index,'spec',e.target.value)}/>:item.spec}</td>
-        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td><td>{editable?<input type="number" min="0" value={item.unitPrice} onChange={e=>updateItem(index,'unitPrice',e.target.value)}/>:fmt(item.unitPrice)}</td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>{editable&&<td className="no-print"><button className="invoice-delete" onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></td>}
+        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td><td>{editable?<input className="money-input" inputMode="numeric" value={fmt(item.unitPrice)} onChange={e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/>:fmt(item.unitPrice)}</td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>{editable&&<td className="no-print"><button className="invoice-delete" onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></td>}
       </tr>})}
       {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>{editable&&<td className="no-print"></td>}</tr>)}
-      </tbody><tfoot><tr><th colSpan="6">합계</th><td className="money">{fmt(supplyTotal)}</td><td className="money">{fmt(taxTotal)}</td>{editable&&<td className="no-print"></td>}</tr></tfoot></table>
+      </tbody><tfoot><tr><th className="total-label" colSpan="6">합계</th><td className="money total-money">{fmt(supplyTotal)}</td><td className="money total-money">{fmt(taxTotal)}</td>{editable&&<td className="no-print"></td>}</tr></tfoot></table>
       <div className="invoice-note"><b>비고</b>{editable?<textarea placeholder="비고 내용을 입력하세요" value={note} onChange={e=>setNote(e.target.value)}/>:<div>{note}</div>}</div>
       <div className="invoice-account"><b>입금계좌</b>{editable?<input placeholder="예: 국민은행 000000-00-000000 예금주 OTO" value={supplier.bankAccount||''} onChange={e=>updateSupplier('bankAccount',e.target.value)}/>:<div>{supplier.bankAccount||''}</div>}</div>
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>

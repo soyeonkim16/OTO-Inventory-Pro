@@ -716,3 +716,18 @@ nav button.active{
   .form-grid input,.form-grid select{min-height:46px;font-size:16px}
   .form-grid .primary.full{position:sticky;bottom:0;min-height:50px;z-index:2;box-shadow:0 -8px 18px #fff}
 }
+
+/* v4.2 transaction statement layout and number formatting */
+.invoice-parties col.party-customer-vertical{width:3%}
+.invoice-parties col.party-customer-label{width:6.5%}
+.invoice-parties col.party-customer-data{width:20%}
+.invoice-parties col.party-customer-label-sub{width:5%}
+.invoice-parties col.party-customer-data-sub{width:5.5%}
+.invoice-parties col.party-supplier-vertical{width:3%}
+.invoice-parties col.party-supplier-label{width:7%}
+.invoice-parties col.party-supplier-data{width:25%}
+.invoice-parties col.party-supplier-label-sub{width:7%}
+.invoice-parties col.party-supplier-data-sub{width:18%}
+.invoice-items .money-input{text-align:right!important;padding-right:8px!important;font-variant-numeric:tabular-nums}
+.invoice-items tfoot .total-label{text-align:right!important;padding-right:10px!important}
+.invoice-items tfoot .total-money{text-align:right!important;padding-right:8px!important;font-weight:700}
