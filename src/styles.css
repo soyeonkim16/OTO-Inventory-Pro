@@ -692,3 +692,27 @@ nav button.active{
 @media(max-width:760px){
   main{width:auto;max-width:none;margin:0;padding:13px;}
 }
+
+
+/* v4.0 mobile inventory editing */
+@media(max-width:700px){
+  .panel .table-wrap{overflow:visible;padding:10px}
+  .panel .table-wrap table{min-width:0;display:block}
+  .panel .table-wrap thead{display:none}
+  .panel .table-wrap tbody{display:grid;gap:10px}
+  .panel .table-wrap tr{display:grid;grid-template-columns:1fr 1fr;background:#fff;border:1px solid #e5e7eb;border-radius:15px;padding:12px;box-shadow:0 4px 14px #1118270a}
+  .panel .table-wrap td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;padding:7px 3px;text-align:right;min-width:0}
+  .panel .table-wrap td::before{content:attr(data-label);font-size:12px;font-weight:800;color:#667085;text-align:left;flex:0 0 auto}
+  .panel .table-wrap td[data-label="상품"],.panel .table-wrap td[data-label="관리"]{grid-column:1/-1}
+  .panel .table-wrap td[data-label="상품"]{align-items:flex-start;text-align:left;border-bottom:1px solid #f0f1f3;padding-bottom:10px}
+  .panel .table-wrap td[data-label="상품"]::before{display:none}
+  .panel .table-wrap td[data-label="관리"]{padding-top:10px;border-top:1px solid #f0f1f3}
+  .panel .table-wrap td[data-label="관리"]::before{display:none}
+  .panel .table-wrap .row-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .panel .table-wrap .row-actions button{justify-content:center;min-height:44px}
+  .modal{padding:0;align-items:end}
+  .modal-card{width:100%;max-height:94dvh;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+  .modal-head{position:sticky;top:-18px;background:#fff;z-index:2;padding:4px 0 12px}
+  .form-grid input,.form-grid select{min-height:46px;font-size:16px}
+  .form-grid .primary.full{position:sticky;bottom:0;min-height:50px;z-index:2;box-shadow:0 -8px 18px #fff}
+}

@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='3.2.0';
+const APP_VERSION='4.0.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -314,14 +314,14 @@ function App(){
               <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>도매가</th><th>소매가</th><th>재고</th><th>상태</th><th></th></tr></thead>
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
-                  <td><b>{p.name}</b><small>{p.category}</small></td>
-                  <td>{p.size||'없음'}</td>
-                  <td>{p.color||'없음'}</td>
-                  <td>{Number(p.wholesale_price||0).toLocaleString()}원</td>
-                  <td>{Number(p.retail_price||0).toLocaleString()}원</td>
-                  <td><b>{p.quantity}</b> <small>/ 최소 {p.minimum_quantity}</small></td>
-                  <td><Badge p={p}/></td>
-                  <td><div className="row-actions">
+                  <td data-label="상품"><b>{p.name}</b><small>{p.category}</small></td>
+                  <td data-label="사이즈">{p.size||'없음'}</td>
+                  <td data-label="색상">{p.color||'없음'}</td>
+                  <td data-label="도매가">{Number(p.wholesale_price||0).toLocaleString()}원</td>
+                  <td data-label="소매가">{Number(p.retail_price||0).toLocaleString()}원</td>
+                  <td data-label="재고"><b>{p.quantity}</b> <small>/ 최소 {p.minimum_quantity}</small></td>
+                  <td data-label="상태"><Badge p={p}/></td>
+                  <td data-label="관리"><div className="row-actions">
                     {isAdmin&&<button onClick={()=>setProductModal(p)}>수정</button>}
                     {isAdmin&&<button className="danger-button" onClick={()=>deleteProduct(p)}>삭제</button>}
                   </div></td>
