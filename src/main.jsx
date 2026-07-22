@@ -906,7 +906,7 @@ function InvoiceModal({customer,logs,products,onClose}){
   const fmt=value=>Number(value||0).toLocaleString('ko-KR');
   const parseMoney=value=>String(value??'').replace(/[^0-9.-]/g,'');
 
-  function StatementCopy({copyLabel,editable=false}){
+  function renderStatementCopy(copyLabel,editable=false){
     return <section className="statement-copy">
       <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>({copyLabel})</span></div>
       <table className="invoice-parties"><colgroup>
@@ -940,7 +940,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
     </div></div>
     {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
-    <div className="invoice-sheet portrait-double"><StatementCopy copyLabel="공급받는자 보관용" editable/><div className="cut-line"><span>절 취 선</span></div><StatementCopy copyLabel="공급자 보관용"/></div>
+    <div className="invoice-sheet portrait-double">{renderStatementCopy("공급받는자 보관용",true)}<div className="cut-line"><span>절 취 선</span></div>{renderStatementCopy("공급자 보관용")}</div>
   </div></div>;
 }
 
