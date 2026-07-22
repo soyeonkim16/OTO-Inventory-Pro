@@ -1,10 +1,10 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {createClient} from '@supabase/supabase-js';
-import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck} from 'lucide-react';
+import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='2.3.1';
+const APP_VERSION='3.0.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -332,7 +332,7 @@ function App(){
       }
 
       {tab==='logs'&&<Logs logs={logs} products={products} isAdmin={isAdmin} onMove={setMoveModal} onDelete={deleteStockLog}/>}
-      {tab==='customers'&&<Customers customers={customers} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
+      {tab==='customers'&&<Customers customers={customers} products={products} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
 
       <footer><ShieldCheck size={14}/> 자동 로그인 유지 · 실시간 동기화 · v{APP_VERSION}</footer>
@@ -629,18 +629,64 @@ function postcode(done){
   new window.daum.Postcode({oncomplete:done}).open({popupTitle:'OTO 주소검색'});
 }
 
-function Customers({customers,logs,isAdmin,onAdd,onEdit,onDelete}){
+function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
   const [query,setQuery]=useState('');
   const [selectedId,setSelectedId]=useState('');
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
+  const [sort,setSort]=useState({key:'name',direction:'asc'});
+  const [invoiceOpen,setInvoiceOpen]=useState(false);
 
-  const rows=customers.filter(c=>
-    [c.name,c.recipient_name,c.phone,c.address]
-      .join(' ')
-      .toLowerCase()
-      .includes(query.toLowerCase())
-  );
+  const customerStats=useMemo(()=>{
+    const stats={};
+    customers.forEach(c=>{stats[c.id]={totalOut:0,lastOut:''}});
+    logs.forEach(log=>{
+      if(log.movement_type!=='out')return;
+      const customer=customers.find(c=>log.customer_id===c.id||(!log.customer_id&&log.customer_name===c.name));
+      if(!customer)return;
+      if(!stats[customer.id])stats[customer.id]={totalOut:0,lastOut:''};
+      stats[customer.id].totalOut+=Number(log.quantity||0);
+      const date=log.created_at||'';
+      if(date>stats[customer.id].lastOut)stats[customer.id].lastOut=date;
+    });
+    return stats;
+  },[customers,logs]);
+
+  const rows=useMemo(()=>{
+    const filtered=customers.filter(c=>
+      [c.name,c.recipient_name,c.phone,c.address,c.address_detail]
+        .join(' ')
+        .toLowerCase()
+        .includes(query.toLowerCase())
+    );
+    return [...filtered].sort((a,b)=>{
+      const aStats=customerStats[a.id]||{totalOut:0,lastOut:''};
+      const bStats=customerStats[b.id]||{totalOut:0,lastOut:''};
+      let av='';
+      let bv='';
+      if(sort.key==='totalOut'){
+        av=aStats.totalOut; bv=bStats.totalOut;
+      }else if(sort.key==='lastOut'){
+        av=aStats.lastOut||''; bv=bStats.lastOut||'';
+      }else{
+        av=(a[sort.key]||'').toString(); bv=(b[sort.key]||'').toString();
+      }
+      const result=typeof av==='number' ? av-bv : av.localeCompare(bv,'ko',{numeric:true,sensitivity:'base'});
+      return sort.direction==='asc'?result:-result;
+    });
+  },[customers,query,sort,customerStats]);
+
+  function changeSort(key){
+    setSort(current=>current.key===key
+      ? {key,direction:current.direction==='asc'?'desc':'asc'}
+      : {key,direction:'asc'}
+    );
+  }
+
+  function sortMark(key){
+    if(sort.key!==key)return '↕';
+    return sort.direction==='asc'?'▲':'▼';
+  }
 
   const selected=customers.find(c=>c.id===selectedId)||null;
 
@@ -705,88 +751,173 @@ function Customers({customers,logs,isAdmin,onAdd,onEdit,onDelete}){
     </div>
 
     <div className="customer-layout">
-      <div className="customer-grid">
-        {rows.map(c=>{
-          const totalOut=logs
-            .filter(log=>log.movement_type==='out'&&(log.customer_id===c.id||(!log.customer_id&&log.customer_name===c.name)))
-            .reduce((sum,log)=>sum+Number(log.quantity||0),0);
+      <div className="customer-list-area">
+        <div className="customer-table-wrap">
+          <table className="customer-table">
+            <thead>
+              <tr>
+                <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th>
+                <th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th>
+                <th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th>
+                <th>주소</th>
+                <th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th>
+                <th><button onClick={()=>changeSort('lastOut')}>최근 출고일 <span>{sortMark('lastOut')}</span></button></th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(c=>{
+                const stats=customerStats[c.id]||{totalOut:0,lastOut:''};
+                return <tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}>
+                  <td><b>{c.name}</b></td>
+                  <td>{c.recipient_name||'-'}</td>
+                  <td className="customer-phone">{c.phone||'-'}</td>
+                  <td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td>
+                  <td><strong>{stats.totalOut.toLocaleString()}개</strong></td>
+                  <td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td>
+                  <td>
+                    <div className="customer-row-actions">
+                      <button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>출고내역</button>
+                      {isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}
+                      {isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}
+                    </div>
+                  </td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
 
-          return <article
-            key={c.id}
-            className={selectedId===c.id?'selected':''}
-            onClick={()=>setSelectedId(c.id)}
-          >
-            <div className="customer-card-head">
-              <b>{c.name}</b>
-              <span>누적 출고 {totalOut.toLocaleString()}개</span>
-            </div>
-            <small>{c.recipient_name||'-'} · {c.phone||'-'}</small>
-            <p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p>
-            <div className="customer-card-actions">
-              <button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>출고내역</button>
-              {isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}
-              {isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}
-            </div>
-          </article>
-        })}
-        {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>}
+        <div className="customer-mobile-list">
+          {rows.map(c=>{
+            const stats=customerStats[c.id]||{totalOut:0,lastOut:''};
+            return <article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}>
+              <div className="customer-card-head"><b>{c.name}</b><span>누적 출고 {stats.totalOut.toLocaleString()}개</span></div>
+              <small>{c.recipient_name||'-'} · {c.phone||'-'}</small>
+              <p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p>
+              <div className="customer-card-actions">
+                <button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>출고내역</button>
+                {isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}
+                {isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}
+              </div>
+            </article>;
+          })}
+        </div>
+        {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
 
       <aside className="customer-history">
-        {!selected&&
-          <div className="customer-history-empty">
-            <Users size={34}/>
-            <b>거래처를 선택하세요</b>
-            <span>날짜별 출고수량과 품목을 확인할 수 있습니다.</span>
-          </div>
-        }
-
+        {!selected&&<div className="customer-history-empty"><Users size={34}/><b>거래처를 선택하세요</b><span>날짜별 출고수량과 품목을 확인할 수 있습니다.</span></div>}
         {selected&&<>
-          <div className="customer-history-head">
-            <div>
-              <small>거래처 출고현황</small>
-              <h3>{selected.name}</h3>
-            </div>
-            <button onClick={()=>setSelectedId('')} aria-label="닫기">×</button>
-          </div>
-
-          <div className="customer-history-filter">
-            <label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label>
-            <label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label>
-            <button onClick={exportCustomerCsv}><Download size={16}/>CSV</button>
-          </div>
-
-          <div className="customer-history-summary">
-            <div><small>출고일수</small><strong>{dailyGroups.length.toLocaleString()}일</strong></div>
-            <div><small>총 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+Number(l.quantity||0),0).toLocaleString()}개</strong></div>
-            <div><small>출고 품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div>
-          </div>
-
+          <div className="customer-history-head"><div><small>거래처 출고현황</small><h3>{selected.name}</h3></div><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div>
+          <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button><button className="invoice-open-button" disabled={!customerLogs.length} onClick={()=>setInvoiceOpen(true)}><Printer size={16}/>거래명세표</button></div></div>
+          <div className="customer-history-summary"><div><small>출고일수</small><strong>{dailyGroups.length.toLocaleString()}일</strong></div><div><small>총 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>출고 품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
           <div className="daily-shipments">
-            {dailyGroups.map(day=>
-              <article key={day.date}>
-                <div className="daily-shipment-head">
-                  <b>{new Date(day.date+'T00:00:00').toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'})}</b>
-                  <strong>{day.total.toLocaleString()}개</strong>
-                </div>
-                <div className="daily-items">
-                  {day.items.map(([item,qty])=>
-                    <div key={item}>
-                      <span>{item}</span>
-                      <b>{qty.toLocaleString()}개</b>
-                    </div>
-                  )}
-                </div>
-              </article>
-            )}
-            {!dailyGroups.length&&<Empty text="선택한 기간에 출고 내역이 없습니다."/>}
+            {dailyGroups.map(day=><article key={day.date}><div className="daily-shipment-head"><b>{new Date(day.date+'T00:00:00').toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'})}</b><strong>{day.total.toLocaleString()}개</strong></div><div className="daily-items">{day.items.map(([item,qty])=><div key={item}><span>{item}</span><b>{qty.toLocaleString()}개</b></div>)}</div></article>)}
+            {!dailyGroups.length&&<Empty text="선택한 기간의 출고내역이 없습니다."/>}
           </div>
         </>}
       </aside>
     </div>
+    {invoiceOpen&&selected&&<InvoiceModal customer={selected} logs={customerLogs} products={products} onClose={()=>setInvoiceOpen(false)}/>}
   </section>;
 }
 
+function InvoiceModal({customer,logs,products,onClose}){
+  const today=new Date().toLocaleDateString('en-CA');
+  const savedSupplier=(()=>{try{return JSON.parse(localStorage.getItem('oto_invoice_supplier')||'null')}catch{return null}})();
+  const [supplier,setSupplier]=useState(savedSupplier||{businessName:'OTO',registrationNumber:'',representative:'',address:'',phone:'',fax:'',manager:'',managerPhone:'',bankAccount:''});
+  const [issueDate,setIssueDate]=useState(today);
+  const [statementNo,setStatementNo]=useState(()=>today.replaceAll('-','')+'-001');
+  const [note,setNote]=useState('');
+  const [archiveOpen,setArchiveOpen]=useState(false);
+  const [savedInvoices,setSavedInvoices]=useState(()=>{try{return JSON.parse(localStorage.getItem('oto_saved_invoices')||'[]')}catch{return []}});
+  const savedPrices=(()=>{try{return JSON.parse(localStorage.getItem('oto_product_prices')||'{}')}catch{return {}}})();
+  const [items,setItems]=useState(()=>{
+    const grouped={};
+    logs.forEach(log=>{
+      const date=new Date(log.created_at).toLocaleDateString('en-CA');
+      const product=products.find(p=>p.id===log.product_id||p.name===log.product_name);
+      const spec=[product?.size,product?.color].filter(v=>v&&v!=='없음').join(' / ');
+      const key=[date,log.product_name,spec].join('|');
+      if(!grouped[key])grouped[key]={id:key,date,name:log.product_name||'',spec,quantity:0,unitPrice:Number(savedPrices[log.product_name]||0),taxRate:10};
+      grouped[key].quantity+=Number(log.quantity||0);
+    });
+    return Object.values(grouped).sort((a,b)=>a.date.localeCompare(b.date));
+  });
+
+  useEffect(()=>{
+    const listener=e=>e.key==='Escape'&&onClose();
+    window.addEventListener('keydown',listener);
+    return()=>window.removeEventListener('keydown',listener);
+  },[onClose]);
+
+  function updateSupplier(key,value){setSupplier(current=>({...current,[key]:value}))}
+  function updateItem(index,key,value){setItems(current=>current.map((item,i)=>i===index?{...item,[key]:value}:item))}
+  function addItem(){setItems(current=>[...current,{id:'new-'+Date.now(),date:issueDate,name:'',spec:'',quantity:1,unitPrice:0,taxRate:10}])}
+  function saveSupplier(){localStorage.setItem('oto_invoice_supplier',JSON.stringify(supplier));alert('공급자 정보가 이 기기에 저장되었습니다.')}
+  function saveInvoice(){
+    const priceMap={...savedPrices};
+    items.forEach(item=>{if(item.name)priceMap[item.name]=Number(item.unitPrice||0)});
+    localStorage.setItem('oto_product_prices',JSON.stringify(priceMap));
+    const invoice={id:statementNo+'-'+Date.now(),statementNo,issueDate,note,supplier,customer,items,createdAt:new Date().toISOString()};
+    const next=[invoice,...savedInvoices.filter(saved=>saved.statementNo!==statementNo)].slice(0,100);
+    setSavedInvoices(next);
+    localStorage.setItem('oto_saved_invoices',JSON.stringify(next));
+    alert('거래명세표를 저장했습니다.');
+  }
+  function loadInvoice(invoice){
+    setStatementNo(invoice.statementNo||statementNo);setIssueDate(invoice.issueDate||today);setNote(invoice.note||'');
+    setSupplier(invoice.supplier||supplier);setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));setArchiveOpen(false);
+  }
+  function deleteInvoice(id){
+    if(!confirm('저장된 거래명세표를 삭제할까요?'))return;
+    const next=savedInvoices.filter(invoice=>invoice.id!==id);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));
+  }
+  const supplyTotal=items.reduce((sum,item)=>sum+Number(item.quantity||0)*Number(item.unitPrice||0),0);
+  const taxTotal=items.reduce((sum,item)=>sum+Math.round(Number(item.quantity||0)*Number(item.unitPrice||0)*Number(item.taxRate||0)/100),0);
+  const grandTotal=supplyTotal+taxTotal;
+  const fmt=value=>Number(value||0).toLocaleString('ko-KR');
+
+  return <div className="invoice-overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="invoice-window">
+      <div className="invoice-toolbar no-print">
+        <div><b>거래명세표 미리보기</b><small>단가와 공급자 정보를 입력한 후 인쇄하세요.</small></div>
+        <div><button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(value=>!value)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button></div>
+      </div>
+      {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length? savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.statementNo}</b><span>{invoice.issueDate} · {invoice.customer?.name||'-'}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
+      <div className="invoice-sheet">
+        <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>(공급받는자 보관용)</span></div>
+        <div className="invoice-meta no-print"><label>작성일<input type="date" value={issueDate} onChange={e=>setIssueDate(e.target.value)}/></label><label>명세표 번호<input value={statementNo} onChange={e=>setStatementNo(e.target.value)}/></label></div>
+        <table className="invoice-parties"><tbody><tr>
+          <th className="vertical-label" rowSpan="5">공급받는자</th><th>상호<br/>(법인명)</th><td colSpan="3"><input value={customer.name||''} readOnly/></td>
+          <th className="vertical-label" rowSpan="5">공급자</th><th>등록번호</th><td colSpan="3"><input value={supplier.registrationNumber} onChange={e=>updateSupplier('registrationNumber',e.target.value)} placeholder="사업자등록번호"/></td>
+        </tr><tr>
+          <th>성명</th><td colSpan="3"><input value={customer.recipient_name||''} readOnly/></td><th>상호<br/>(법인명)</th><td><input value={supplier.businessName} onChange={e=>updateSupplier('businessName',e.target.value)}/></td><th>성명</th><td><input value={supplier.representative} onChange={e=>updateSupplier('representative',e.target.value)}/></td>
+        </tr><tr>
+          <th>사업장<br/>주소</th><td colSpan="3"><textarea value={[customer.address,customer.address_detail].filter(Boolean).join(' ')} readOnly/></td><th>사업장<br/>주소</th><td colSpan="3"><textarea value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/></td>
+        </tr><tr>
+          <th>전화번호</th><td colSpan="3"><input value={customer.phone||''} readOnly/></td><th>전화</th><td><input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/></td><th>팩스</th><td><input value={supplier.fax} onChange={e=>updateSupplier('fax',e.target.value)}/></td>
+        </tr><tr>
+          <th>합계금액<br/>(VAT포함)</th><td colSpan="3" className="invoice-grand-total">{fmt(grandTotal)}</td><th>작성일</th><td>{issueDate}</td><th>번호</th><td>{statementNo}</td>
+        </tr></tbody></table>
+
+        <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th><th className="no-print">삭제</th></tr></thead><tbody>
+          {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
+            <td><input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/></td>
+            <td><input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/></td>
+            <td><input value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/></td><td><input value={item.spec} onChange={e=>updateItem(index,'spec',e.target.value)}/></td>
+            <td><input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/></td><td><input type="number" min="0" value={item.unitPrice} onChange={e=>updateItem(index,'unitPrice',e.target.value)}/></td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td><td className="no-print"><button className="invoice-delete" onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></td>
+          </tr>})}
+          {Array.from({length:Math.max(0,10-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td className="no-print"></td></tr>)}
+        </tbody><tfoot><tr><th colSpan="6">합계</th><td className="money">{fmt(supplyTotal)}</td><td className="money">{fmt(taxTotal)}</td><td className="no-print"></td></tr></tfoot></table>
+        <div className="invoice-note"><b>비고</b><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="필요한 내용을 입력하세요."/></div>
+        <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
+        <div className="invoice-footer"><span>담당자: <input value={supplier.manager} onChange={e=>updateSupplier('manager',e.target.value)}/></span><span><input value={supplier.managerPhone} onChange={e=>updateSupplier('managerPhone',e.target.value)} placeholder="담당자 연락처"/></span><span>입금계좌: <input value={supplier.bankAccount} onChange={e=>updateSupplier('bankAccount',e.target.value)} placeholder="은행 / 계좌번호 / 예금주"/></span></div>
+      </div>
+    </div>
+  </div>;
+}
 
 function EmployeeManagement({session,currentUserId}){
   const [employees,setEmployees]=useState([]);
