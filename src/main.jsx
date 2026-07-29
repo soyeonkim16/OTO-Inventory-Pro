@@ -1033,6 +1033,14 @@ function InvoiceModal({customer,logs,products,onClose}){
       })
     );
   }
+  function saveSupplier(){
+    localStorage.setItem(
+      'oto_invoice_supplier',
+      JSON.stringify(supplier)
+    );
+    alert('공급자 정보가 이 기기에 저장되었습니다.');
+  }
+
   function saveInvoice(){
     const invoice={id:'invoice-'+Date.now(),issueDate,note,supplier,customer,items,priceType,createdAt:new Date().toISOString()};
     const next=[invoice,...savedInvoices].slice(0,100);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));alert('거래명세표를 저장했습니다.');
