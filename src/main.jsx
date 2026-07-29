@@ -862,6 +862,34 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
 function InvoiceModal({customer,logs,products,onClose}){
   const today=new Date().toLocaleDateString('en-CA');
 
+  function normalizeProductName(value){
+    return String(value||'')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g,'')
+      .replace(/[\/|·ㆍ_-]/g,'');
+  }
+
+  function findMatchedProduct(item){
+    const itemId=String(item?.product_id||item?.productId||'');
+    const itemName=normalizeProductName(item?.product_name||item?.name||'');
+
+    return products.find(product=>{
+      const productId=String(product?.id||'');
+      const productName=normalizeProductName(product?.name||'');
+
+      if(itemId&&productId&&itemId===productId)return true;
+      if(!itemName||!productName)return false;
+
+      return (
+        itemName===productName ||
+        itemName.startsWith(productName) ||
+        productName.startsWith(itemName) ||
+        itemName.includes(productName)
+      );
+    });
+  }
+
   const savedSupplier=(()=>{
     try{
       return JSON.parse(
@@ -929,11 +957,13 @@ function InvoiceModal({customer,logs,products,onClose}){
         spec
       ].join('|');
 
-      const defaultPrice=Number(
-        initialPriceType==='retail'
-          ? product?.retail_price
-          : product?.wholesale_price
-      )||0;
+      const defaultPrice=product
+        ? Number(
+            initialPriceType==='retail'
+              ? product.retail_price
+              : product.wholesale_price
+          )||0
+        : 0;
 
       const savedLogPrice=Number(log.unit_price||0);
 
@@ -1026,21 +1056,12 @@ function InvoiceModal({customer,logs,products,onClose}){
 
         return {
           ...item,
-          unitPrice:nextPrice>0
-            ? nextPrice
-            : Number(item.unitPrice||0)
+          productId:product.id,
+          unitPrice:nextPrice
         };
       })
     );
   }
-  function saveSupplier(){
-    localStorage.setItem(
-      'oto_invoice_supplier',
-      JSON.stringify(supplier)
-    );
-    alert('공급자 정보가 이 기기에 저장되었습니다.');
-  }
-
   function saveInvoice(){
     const invoice={id:'invoice-'+Date.now(),issueDate,note,supplier,customer,items,priceType,createdAt:new Date().toISOString()};
     const next=[invoice,...savedInvoices].slice(0,100);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));alert('거래명세표를 저장했습니다.');
@@ -1090,6 +1111,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     <div className="invoice-sheet portrait-double">{renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}<div className="cut-line">- - - - - - - - - - - - - - 절 취 선 - - - - - - - - - - - - - -</div>{renderStatementCopy({copyLabel:'공급자 보관용'})}</div>
   </div></div>;
 }
+
 
 function EmployeeManagement({session,currentUserId}){
   const [employees,setEmployees]=useState([]);
