@@ -1112,7 +1112,6 @@ function InvoiceModal({customer,logs,products,onClose}){
   </div></div>;
 }
 
-
 function EmployeeManagement({session,currentUserId}){
   const [employees,setEmployees]=useState([]);
   const [loading,setLoading]=useState(true);
