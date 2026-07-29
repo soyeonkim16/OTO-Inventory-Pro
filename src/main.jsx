@@ -870,24 +870,48 @@ function InvoiceModal({customer,logs,products,onClose}){
       .replace(/[\/|·ㆍ_-]/g,'');
   }
 
-  function findMatchedProduct(item){
+  function findMatchedProduct(item,selectedPriceType=priceType){
     const itemId=String(item?.product_id||item?.productId||'');
-    const itemName=normalizeProductName(item?.product_name||item?.name||'');
+    const rawItemName=String(item?.product_name||item?.name||'');
+    const itemName=normalizeProductName(rawItemName);
+    const itemSpec=normalizeProductName(item?.spec||'');
 
-    return products.find(product=>{
-      const productId=String(product?.id||'');
-      const productName=normalizeProductName(product?.name||'');
+    const exactIdProduct=products.find(product=>
+      itemId&&String(product?.id||'')===itemId
+    );
+    if(exactIdProduct)return exactIdProduct;
 
-      if(itemId&&productId&&itemId===productId)return true;
-      if(!itemName||!productName)return false;
+    const scored=products
+      .map(product=>{
+        const productName=normalizeProductName(product?.name||'');
+        const productSize=normalizeProductName(product?.size||'');
+        const productColor=normalizeProductName(product?.color||'');
+        const searchableItem=`${itemName}${itemSpec}`;
+        let score=0;
 
-      return (
-        itemName===productName ||
-        itemName.startsWith(productName) ||
-        productName.startsWith(itemName) ||
-        itemName.includes(productName)
-      );
-    });
+        if(!itemName||!productName)return {product,score:-1};
+        if(itemName===productName)score+=100;
+        else if(itemName.startsWith(productName))score+=80;
+        else if(itemName.includes(productName))score+=60;
+        else if(productName.includes(itemName))score+=40;
+        else return {product,score:-1};
+
+        if(productSize&&productSize!=='없음'&&searchableItem.includes(productSize))score+=20;
+        if(productColor&&productColor!=='없음'&&searchableItem.includes(productColor))score+=20;
+
+        const price=Number(
+          selectedPriceType==='retail'
+            ? product?.retail_price
+            : product?.wholesale_price
+        )||0;
+        if(price>0)score+=5;
+
+        return {product,score};
+      })
+      .filter(result=>result.score>=0)
+      .sort((a,b)=>b.score-a.score);
+
+    return scored[0]?.product||null;
   }
 
   const savedSupplier=(()=>{
@@ -939,7 +963,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       const date=new Date(log.created_at)
         .toLocaleDateString('en-CA');
 
-      const product=findMatchedProduct(log);
+      const product=findMatchedProduct(log,initialPriceType);
 
       const spec=[
         product?.size,
@@ -985,6 +1009,27 @@ function InvoiceModal({customer,logs,products,onClose}){
     return Object.values(grouped)
       .sort((a,b)=>a.date.localeCompare(b.date));
   });
+
+  useEffect(()=>{
+    if(!products.length)return;
+
+    setItems(current=>current.map(item=>{
+      if(Number(item.unitPrice||0)>0)return item;
+
+      const product=findMatchedProduct(item,priceType);
+      if(!product)return item;
+
+      const matchedPrice=Number(
+        priceType==='retail'
+          ? product.retail_price
+          : product.wholesale_price
+      )||0;
+
+      return matchedPrice>0
+        ? {...item,productId:product.id,unitPrice:matchedPrice}
+        : item;
+    }));
+  },[products,priceType]);
 
   useEffect(()=>{
     const listener=e=>{
