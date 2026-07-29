@@ -876,7 +876,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       const spec=[product?.size,product?.color].filter(v=>v&&v!=='없음').join(' / ');
       const key=[date,log.product_name,spec].join('|');
       const defaultPrice=Number((customer.price_type||'wholesale')==='retail'?product?.retail_price:product?.wholesale_price)||0;
-      if(!grouped[key])grouped[key]={id:key,date,name:log.product_name||'',spec,quantity:0,unitPrice:Number(log.unit_price||defaultPrice),taxRate:10,productId:product?.id||null};
+      if(!grouped[key])grouped[key]={id:key,date,name:log.product_name||'',spec,quantity:0,unitPrice:Number(log.unit_price)>0? Number(log.unit_price): defaultPrice,taxRate:10, productId:product?.id||null};
       grouped[key].quantity+=Number(log.quantity||0);
     });
     return Object.values(grouped).sort((a,b)=>a.date.localeCompare(b.date));
