@@ -855,7 +855,7 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
         </>}
       </aside>
     </div>
-    {invoiceOpen&&selected&&<InvoiceModal customer={selected} logs={customerLogs} products={products} onClose={()=>setInvoiceOpen(false)}/>}
+    {invoiceOpen&&selected&&<InvoiceModal customer={selected} products={products} logs={customerLogs} products={products} onClose={()=>setInvoiceOpen(false)}/>}
   </section>;
 }
 
