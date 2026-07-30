@@ -1044,11 +1044,20 @@ function InvoiceModal({customer,logs,products,onClose}){
   },[onClose]);
 
   function updateSupplier(key,value){
-    setSupplier(current=>({
+  setSupplier(current=>{
+    const nextSupplier={
       ...current,
       [key]:value
-    }));
-  }
+    };
+
+    localStorage.setItem(
+      'oto_invoice_supplier',
+      JSON.stringify(nextSupplier)
+    );
+
+    return nextSupplier;
+  });
+}
 
   function updateItem(index,key,value){
     setItems(current=>
