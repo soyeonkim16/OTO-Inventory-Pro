@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.3.2';
+const APP_VERSION='6.4.0';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -1847,6 +1847,10 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
 
 function InvoiceModal({customer,logs,products,onClose}){
   const today=new Date().toLocaleDateString('en-CA');
+  const [invoiceCustomer,setInvoiceCustomer]=useState(customer);
+  const [customerPrices,setCustomerPrices]=useState({});
+  const [priceLoading,setPriceLoading]=useState(false);
+  const [loadedArchiveId,setLoadedArchiveId]=useState(null);
 
   function normalizeProductName(value){
     return String(value||'')
@@ -1927,7 +1931,7 @@ function InvoiceModal({customer,logs,products,onClose}){
   const [issueDate,setIssueDate]=useState(today);
   const [note,setNote]=useState('');
   const [priceType,setPriceType]=useState(
-    customer.price_type||'wholesale'
+    invoiceCustomer.price_type||'wholesale'
   );
   const [archiveOpen,setArchiveOpen]=useState(false);
 
@@ -1998,6 +2002,52 @@ function InvoiceModal({customer,logs,products,onClose}){
   });
 
   useEffect(()=>{
+    let cancelled=false;
+
+    async function loadCustomerPrices(){
+      if(!invoiceCustomer?.id){
+        setCustomerPrices({});
+        return;
+      }
+
+      setPriceLoading(true);
+      const {data,error}=await supabase
+        .from('customer_product_prices')
+        .select('product_id,unit_price')
+        .eq('customer_id',invoiceCustomer.id);
+
+      if(cancelled)return;
+      setPriceLoading(false);
+
+      if(error){
+        console.warn('거래처별 단가 불러오기 실패:',error.message);
+        setCustomerPrices({});
+        return;
+      }
+
+      const priceMap=Object.fromEntries(
+        (data||[]).map(row=>[String(row.product_id),Number(row.unit_price||0)])
+      );
+      setCustomerPrices(priceMap);
+
+      // 저장 명세표 재출력 시에는 당시 저장된 단가를 그대로 유지합니다.
+      if(loadedArchiveId)return;
+
+      setItems(current=>current.map(item=>{
+        const product=findMatchedProduct(item,priceType);
+        if(!product)return item;
+        const customPrice=Number(priceMap[String(product.id)]||0);
+        return customPrice>0
+          ? {...item,productId:product.id,unitPrice:customPrice}
+          : item;
+      }));
+    }
+
+    loadCustomerPrices();
+    return()=>{cancelled=true};
+  },[invoiceCustomer?.id,loadedArchiveId]);
+
+  useEffect(()=>{
     if(!products.length)return;
 
     setItems(current=>current.map(item=>{
@@ -2006,17 +2056,20 @@ function InvoiceModal({customer,logs,products,onClose}){
       const product=findMatchedProduct(item,priceType);
       if(!product)return item;
 
-      const matchedPrice=Number(
-        priceType==='retail'
-          ? product.retail_price
-          : product.wholesale_price
-      )||0;
+      const customPrice=Number(customerPrices[String(product.id)]||0);
+      const matchedPrice=customPrice>0
+        ? customPrice
+        : Number(
+            priceType==='retail'
+              ? product.retail_price
+              : product.wholesale_price
+          )||0;
 
       return matchedPrice>0
         ? {...item,productId:product.id,unitPrice:matchedPrice}
         : item;
     }));
-  },[products,priceType]);
+  },[products,priceType,customerPrices]);
 
   useEffect(()=>{
     const listener=e=>{
@@ -2074,6 +2127,7 @@ function InvoiceModal({customer,logs,products,onClose}){
 
   function applyPriceType(nextType){
     setPriceType(nextType);
+    setLoadedArchiveId(null);
 
     setItems(current=>
       current.map(item=>{
@@ -2083,11 +2137,14 @@ function InvoiceModal({customer,logs,products,onClose}){
           return item;
         }
 
-        const nextPrice=Number(
-          nextType==='retail'
-            ? product.retail_price
-            : product.wholesale_price
-        )||0;
+        const customPrice=Number(customerPrices[String(product.id)]||0);
+        const nextPrice=customPrice>0
+          ? customPrice
+          : Number(
+              nextType==='retail'
+                ? product.retail_price
+                : product.wholesale_price
+            )||0;
 
         return {
           ...item,
@@ -2105,11 +2162,58 @@ function InvoiceModal({customer,logs,products,onClose}){
     alert('공급자 정보가 이 기기에 저장되었습니다.');
   }
 
+  async function saveCustomerPrices(){
+    if(!invoiceCustomer?.id){
+      alert('거래처 정보가 없어 단가를 저장할 수 없습니다.');
+      return;
+    }
+
+    const rows=items
+      .map(item=>{
+        const product=findMatchedProduct(item,priceType);
+        const productId=item.productId||product?.id;
+        const unitPrice=Number(item.unitPrice||0);
+        return productId&&unitPrice>0
+          ? {customer_id:String(invoiceCustomer.id),product_id:String(productId),unit_price:unitPrice,updated_at:new Date().toISOString()}
+          : null;
+      })
+      .filter(Boolean);
+
+    if(!rows.length){
+      alert('저장할 상품 단가가 없습니다.');
+      return;
+    }
+
+    const {error}=await supabase
+      .from('customer_product_prices')
+      .upsert(rows,{onConflict:'customer_id,product_id'});
+
+    if(error){
+      alert('거래처별 단가 저장에 실패했습니다. Supabase SQL 설정을 먼저 확인해주세요.\n'+error.message);
+      return;
+    }
+
+    setCustomerPrices(current=>({
+      ...current,
+      ...Object.fromEntries(rows.map(row=>[String(row.product_id),Number(row.unit_price)]))
+    }));
+    alert(`${invoiceCustomer.name||'거래처'}의 상품별 단가를 저장했습니다.`);
+  }
+
   function saveInvoice(){
-    const invoice={id:'invoice-'+Date.now(),issueDate,note,supplier,customer,items,priceType,createdAt:new Date().toISOString()};
+    const invoice={id:'invoice-'+Date.now(),issueDate,note,supplier,customer:invoiceCustomer,items,priceType,createdAt:new Date().toISOString()};
     const next=[invoice,...savedInvoices].slice(0,100);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next));alert('거래명세표를 저장했습니다.');
   }
-  function loadInvoice(invoice){setIssueDate(invoice.issueDate||today);setNote(invoice.note||'');setSupplier(invoice.supplier||supplier);setPriceType(invoice.priceType||customer.price_type||'wholesale');setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));setArchiveOpen(false)}
+  function loadInvoice(invoice){
+    setLoadedArchiveId(invoice.id);
+    setInvoiceCustomer(invoice.customer||customer);
+    setIssueDate(invoice.issueDate||today);
+    setNote(invoice.note||'');
+    setSupplier(invoice.supplier||supplier);
+    setPriceType(invoice.priceType||invoice.customer?.price_type||customer.price_type||'wholesale');
+    setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));
+    setArchiveOpen(false);
+  }
   function deleteInvoice(id){if(!confirm('저장된 거래명세표를 삭제할까요?'))return;const next=savedInvoices.filter(invoice=>invoice.id!==id);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next))}
   const supplyTotal=items.reduce((sum,item)=>sum+Number(item.quantity||0)*Number(item.unitPrice||0),0);
   const taxTotal=items.reduce((sum,item)=>sum+Math.round(Number(item.quantity||0)*Number(item.unitPrice||0)*Number(item.taxRate||0)/100),0);
@@ -2133,11 +2237,11 @@ function InvoiceModal({customer,logs,products,onClose}){
         <col className="party-customer-vertical"/><col className="party-customer-label"/><col className="party-customer-data"/><col className="party-customer-label-sub"/><col className="party-customer-data-sub"/>
         <col className="party-supplier-vertical"/><col className="party-supplier-label"/><col className="party-supplier-data"/><col className="party-supplier-label-sub"/><col className="party-supplier-data-sub"/>
       </colgroup><tbody><tr>
-        <th className="vertical-label" rowSpan="4">공급받는자</th><th>상호</th><td colSpan="3">{customer.name||''}</td>
+        <th className="vertical-label" rowSpan="4">공급받는자</th><th>상호</th><td colSpan="3">{invoiceCustomer.name||''}</td>
         <th className="vertical-label" rowSpan="4">공급자</th><th>등록번호</th><td colSpan="3"><input {...inputProps(supplier.registrationNumber,e=>updateSupplier('registrationNumber',e.target.value))}/></td>
-      </tr><tr><th>성명</th><td colSpan="3">{customer.recipient_name||''}</td><th>상호</th><td><input {...inputProps(supplier.businessName,e=>updateSupplier('businessName',e.target.value))}/></td><th>성명</th><td><input {...inputProps(supplier.representative,e=>updateSupplier('representative',e.target.value))}/></td></tr>
-      <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3"><input {...inputProps(supplier.address,e=>updateSupplier('address',e.target.value))}/></td></tr>
-      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td><input {...inputProps(supplier.phone,e=>updateSupplier('phone',e.target.value))}/></td><th>팩스</th><td><input {...inputProps(supplier.fax||'',e=>updateSupplier('fax',e.target.value))}/></td></tr></tbody></table>
+      </tr><tr><th>성명</th><td colSpan="3">{invoiceCustomer.recipient_name||''}</td><th>상호</th><td><input {...inputProps(supplier.businessName,e=>updateSupplier('businessName',e.target.value))}/></td><th>성명</th><td><input {...inputProps(supplier.representative,e=>updateSupplier('representative',e.target.value))}/></td></tr>
+      <tr><th>주소</th><td colSpan="3">{[invoiceCustomer.address,invoiceCustomer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3"><input {...inputProps(supplier.address,e=>updateSupplier('address',e.target.value))}/></td></tr>
+      <tr><th>전화</th><td colSpan="3">{invoiceCustomer.phone||''}</td><th>전화</th><td><input {...inputProps(supplier.phone,e=>updateSupplier('phone',e.target.value))}/></td><th>팩스</th><td><input {...inputProps(supplier.fax||'',e=>updateSupplier('fax',e.target.value))}/></td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
       <table className="invoice-items"><colgroup><col className="invoice-col-month"/><col className="invoice-col-day"/><col className="invoice-col-item"/><col className="invoice-col-qty"/><col className="invoice-col-unit"/><col className="invoice-col-supply"/><col className="invoice-col-tax"/></colgroup><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
@@ -2159,9 +2263,9 @@ function InvoiceModal({customer,logs,products,onClose}){
   return <div className="invoice-overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><div className="invoice-window">
     <div className="invoice-toolbar no-print"><div><b>거래명세표 미리보기</b><small>A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.</small></div><div>
       <label className="price-type-control">단가 <select value={priceType} onChange={e=>applyPriceType(e.target.value)}><option value="wholesale">도매가</option><option value="retail">소매가</option></select></label>
-      <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
+      <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveCustomerPrices} disabled={priceLoading}>{priceLoading?'단가 불러오는 중':'거래처 단가 저장'}</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
     </div></div>
-    {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
+    {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button onClick={()=>{loadInvoice(invoice);setTimeout(()=>window.print(),80)}}><Printer size={14}/>재출력</button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
     <div className="invoice-sheet portrait-double">{renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}<div className="cut-line" aria-hidden="true"></div>{renderStatementCopy({copyLabel:'공급자 보관용'})}</div>
   </div></div>;
 }
