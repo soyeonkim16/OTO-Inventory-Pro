@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.5';
+const APP_VERSION='5.5.1';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -1052,10 +1052,10 @@ function ReceivableModal({customer,mode,user,onClose,onSaved}){
     <div className="modal-card" style={{maxWidth:440}}>
       <div className="modal-head"><div><small>{customer.name}</small><h3>{mode==='charge'?'미수금 등록':'입금 처리'}</h3></div><button onClick={onClose}>×</button></div>
       <div className="form-grid" style={{gridTemplateColumns:'1fr 1fr'}}>
-        <Input label="처리일" type="date" value={date} set={setDate}/>
+        <Field label="처리일" type="date" value={date} set={setDate}/>
         <Select label={mode==='charge'?'구분':'입금수단'} value={method} set={setMethod} options={mode==='charge'?['외상','추가 미수','기타']:['계좌이체','현금','카드','기타']}/>
-        <div style={{gridColumn:'1 / -1'}}><Input label={mode==='charge'?'미수금액':'입금금액'} type="number" value={amount} set={setAmount}/></div>
-        <div style={{gridColumn:'1 / -1'}}><Input label="메모" value={memo} set={setMemo} placeholder={mode==='charge'?'예: 7월 30일 출고대금':'예: 국민은행 입금'}/></div>
+        <div style={{gridColumn:'1 / -1'}}><Field label={mode==='charge'?'미수금액':'입금금액'} type="number" value={amount} set={setAmount}/></div>
+        <div style={{gridColumn:'1 / -1'}}><Field label="메모" value={memo} set={setMemo}/></div>
         {error&&<div className="error" style={{gridColumn:'1 / -1'}}>{error}</div>}
       </div>
       <div className="modal-actions"><button onClick={onClose} disabled={saving}>취소</button><button className="primary" onClick={save} disabled={saving}>{saving?'저장 중…':mode==='charge'?'미수금 등록':'입금 처리'}</button></div>
