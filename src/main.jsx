@@ -1,10 +1,22 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {createClient} from '@supabase/supabase-js';
-import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer} from 'lucide-react';
+import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.1.0';
+const APP_VERSION='5.1.2';
+
+// 거래명세표 인쇄 시 편집용 X 버튼 숨김
+if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
+  const style=document.createElement('style');
+  style.id='oto-invoice-print-fix';
+  style.textContent=`@media print{
+    .invoice-delete,.invoice-delete.no-print{display:none!important;visibility:hidden!important;}
+    .invoice-items td input{padding-right:2px!important;}
+  }`;
+  document.head.appendChild(style);
+}
+
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -1190,7 +1202,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
         <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
         <td>{editable?<input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/>:d[2]}</td>
-        <td style={{position:'relative'}}>{editable?<><input style={{paddingRight:24}} value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/><button type="button" className="invoice-delete no-print" style={{position:'absolute',right:2,top:'50%',transform:'translateY(-50%)'}} onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></>:item.name}</td>
+        <td style={{position:'relative'}}>{editable?<><input style={{paddingRight:24}} value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/><button type="button" className="invoice-delete no-print" title="이 품목 삭제" aria-label="이 품목 삭제" style={{position:'absolute',right:3,top:'50%',transform:'translateY(-50%)',width:24,height:24,padding:0,border:'none',background:'transparent',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>{if(items.length<=1){window.alert('거래명세표에는 품목이 최소 1개 필요합니다.');return;}setItems(current=>current.filter((_,i)=>i!==index));}}><Trash2 size={15}/></button></>:item.name}</td>
         <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td><td>{editable?<input className="money-input" inputMode="numeric" value={fmt(item.unitPrice)} onChange={e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/>:fmt(item.unitPrice)}</td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>
       </tr>})}
       {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}
