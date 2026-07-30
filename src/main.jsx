@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.4.5';
+const APP_VERSION='6.5.0';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -969,6 +969,15 @@ const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 const RECEIVABLE_STORAGE_KEY='oto_receivable_entries';
 
+// v6.5 공통 숫자 표시 함수
+function formatNumber(value){
+  const number=Number(value);
+  return (Number.isFinite(number)?number:0).toLocaleString('ko-KR');
+}
+function formatWon(value){return `${formatNumber(value)}원`}
+function formatQty(value){return `${formatNumber(value)}개`}
+
+
 // v5.4까지 브라우저에 저장된 자료를 Supabase로 옮길 때만 사용합니다.
 function readLegacyReceivableEntries(){
   try{
@@ -1024,6 +1033,7 @@ function App(){
   const [productModal,setProductModal]=useState(null);
   const [moveModal,setMoveModal]=useState(null);
   const [customerModal,setCustomerModal]=useState(null);
+  const [imageViewer,setImageViewer]=useState(null);
   const reloadTimer=useRef(null);
   const mounted=useRef(true);
 
@@ -1347,14 +1357,14 @@ function App(){
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
                   <td data-label="상품"><div className="product-cell">
-                    {p.image_url?<img className="product-thumb" src={p.image_url} alt={p.name} loading="lazy"/>:<div className="product-thumb product-thumb-empty">사진<br/>없음</div>}
+                    {p.image_url?<button type="button" className="product-thumb-button" onClick={()=>setImageViewer({url:p.image_url,name:p.name})} title="상품 사진 크게 보기"><img className="product-thumb" src={p.image_url} alt={p.name} loading="lazy"/></button>:<div className="product-thumb product-thumb-empty">사진<br/>없음</div>}
                     <div className="product-info"><b>{p.name}</b><small>{p.category}</small></div>
                   </div></td>
                   <td data-label="사이즈">{p.size||'없음'}</td>
                   <td data-label="색상">{p.color||'없음'}</td>
-                  <td data-label="도매가">{Number(p.wholesale_price||0).toLocaleString()}원</td>
-                  <td data-label="소매가">{Number(p.retail_price||0).toLocaleString()}원</td>
-                  <td data-label="재고"><b>{p.quantity}</b> <small>/ 최소 {p.minimum_quantity}</small></td>
+                  <td data-label="도매가">{formatWon(p.wholesale_price)}</td>
+                  <td data-label="소매가">{formatWon(p.retail_price)}</td>
+                  <td data-label="재고"><b>{formatNumber(p.quantity)}</b> <small>/ 최소 {formatNumber(p.minimum_quantity)}</small></td>
                   <td data-label="상태"><Badge p={p}/></td>
                   <td data-label="관리"><div className="row-actions">
                     {isAdmin&&<button onClick={()=>setProductModal(p)}>수정</button>}
@@ -1368,7 +1378,7 @@ function App(){
         </section>
       }
 
-      {tab==='logs'&&<Logs logs={logs} products={products} isAdmin={isAdmin} onMove={setMoveModal} onDelete={deleteStockLog}/>}
+      {tab==='logs'&&<Logs logs={logs} products={products} customers={customers} isAdmin={isAdmin} onMove={setMoveModal} onDelete={deleteStockLog}/>}
       {tab==='customers'&&<Customers customers={customers} products={products} logs={logs} isAdmin={isAdmin} profile={profile} user={session.user} onReturnSaved={applyMovementSaved} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
       {tab==='sales'&&<SalesDashboard logs={logs} products={products} customers={customers}/>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
@@ -1386,6 +1396,7 @@ function App(){
       onSaved={applyMovementSaved}
     />}
     {customerModal&&<CustomerModal value={customerModal} onClose={()=>setCustomerModal(null)} onSaved={()=>{setCustomerModal(null);loadAll()}}/>}
+    {imageViewer&&<ImageViewerModal image={imageViewer} onClose={()=>setImageViewer(null)}/>}
     {loading&&<div className="loading">데이터를 안전하게 불러오는 중…</div>}
   </div>;
 }
@@ -1469,11 +1480,11 @@ function Login(){
   </form></div>;
 }
 
-function Stat({label,value,danger}){return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{Number(value).toLocaleString()}</strong></div>}
+function Stat({label,value,danger}){return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{formatNumber(value)}</strong></div>}
 function SalesStat({label,value,suffix='',danger}){
   const number=Number(value);
   const safeValue=Number.isFinite(number)?number:0;
-  return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{safeValue.toLocaleString()}{suffix}</strong></div>;
+  return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{formatNumber(safeValue)}{suffix}</strong></div>;
 }
 function Badge({p}){const q=Number(p.quantity),m=Number(p.minimum_quantity);return <span className={'badge '+(q===0?'out':q<=m?'low':'ok')}>{q===0?'품절':q<=m?'부족':'정상'}</span>}
 function Empty({text}){return <div className="empty">{text}</div>}
@@ -2015,6 +2026,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   const [selectedId,setSelectedId]=useState('');
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
+  const [detailProduct,setDetailProduct]=useState(null);
   const [sort,setSort]=useState({key:'name',direction:'asc'});
   const [invoiceLogs,setInvoiceLogs]=useState(null);
   const [returnLog,setReturnLog]=useState(null);
@@ -2024,6 +2036,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   const [receivableLoading,setReceivableLoading]=useState(false);
   const [receivableError,setReceivableError]=useState('');
   const [legacyCount,setLegacyCount]=useState(()=>readLegacyReceivableEntries().length);
+  const [detailCustomer,setDetailCustomer]=useState(null);
 
   async function loadReceivables({silent=false}={}){
     if(!silent)setReceivableLoading(true);
@@ -2295,8 +2308,8 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
           <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
-        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span>{c.name}</b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
-        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span>{c.name}</b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
 
@@ -2304,6 +2317,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
     {returnLog&&selected&&<ReturnFromLogModal log={returnLog} customer={selected} product={matchedProductForLog(returnLog)} alreadyReturned={returnedForLog(returnLog)} profile={profile} user={user} onClose={()=>setReturnLog(null)} onSaved={onReturnSaved}/>}
     {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>} 
     {receivableModal&&(receivableModal.customer||selected)&&<ReceivableModal customer={receivableModal.customer||selected} mode={receivableModal.mode} initialAmount={receivableModal.amount||''} initialMemo={receivableModal.memo||''} source={receivableModal.source||'manual'} user={user} onClose={()=>setReceivableModal(null)} onSaved={saveReceivableEntry}/>}
+    {detailCustomer&&<CustomerDetailModal customer={detailCustomer} products={products} logs={logs} receivableEntries={receivableEntries} onOpenInvoice={groupLogs=>{setSelectedId(detailCustomer.id);setInvoiceLogs(groupLogs);setDetailCustomer(null)}} onClose={()=>setDetailCustomer(null)}/>}
   </section>;
 }
 
@@ -2958,7 +2972,7 @@ function EmployeeCreateModal({onClose,onCreate}){
   </Modal>;
 }
 
-function Logs({logs,products,isAdmin,onMove,onDelete}){
+function Logs({logs,products,customers,isAdmin,onMove,onDelete}){
   const [selectedProductId,setSelectedProductId]=useState('');
   const [query,setQuery]=useState('');
   const [type,setType]=useState('');
@@ -3003,7 +3017,7 @@ function Logs({logs,products,isAdmin,onMove,onDelete}){
           <option value="">상품 선택</option>
           {products.map(product=>
             <option key={product.id} value={product.id}>
-              {product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {product.quantity}
+              {product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {formatNumber(product.quantity)}
             </option>
           )}
         </select>
@@ -3027,13 +3041,77 @@ function Logs({logs,products,isAdmin,onMove,onDelete}){
     <div className="log-list">
       {rows.map(log=><article key={log.id}>
         <span className={log.movement_type}>{log.movement_type==='in'?'입고':'출고'}</span>
-        <div><b>{log.product_name}</b><small>{new Date(log.created_at).toLocaleString('ko-KR')} · {log.staff_name}</small>{log.movement_type==='out'&&<p>{[log.customer_name,log.recipient_name,[log.destination,log.destination_detail].filter(Boolean).join(' '),log.tracking_number].filter(Boolean).join(' · ')}</p>}</div>
-        <strong>{log.movement_type==='in'?'+':'-'}{log.quantity}</strong>
+        <div><button type="button" className="log-product-link" onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button><small>{new Date(log.created_at).toLocaleString('ko-KR')} · {log.staff_name}</small>{log.movement_type==='out'&&<p>{[log.customer_name,log.recipient_name,[log.destination,log.destination_detail].filter(Boolean).join(' '),log.tracking_number].filter(Boolean).join(' · ')}</p>}</div>
+        <strong>{log.movement_type==='in'?'+':'-'}{formatNumber(log.quantity)}</strong>
         {isAdmin&&<button className="log-delete-button" onClick={()=>onDelete(log)}>삭제</button>}
       </article>)}
       {!rows.length&&<Empty text="조건에 맞는 입출고 기록이 없습니다."/>}
     </div>
+    {detailProduct&&<ProductHistoryModal product={detailProduct} logs={logs} customers={customers} onClose={()=>setDetailProduct(null)}/>}
   </section>;
+}
+
+function ImageViewerModal({image,onClose}){
+  return <Modal title={image.name||'상품 사진'} onClose={onClose}>
+    <div className="image-viewer"><img src={image.url} alt={image.name||'상품 사진'}/></div>
+  </Modal>;
+}
+
+function ProductHistoryModal({product,logs,customers,onClose}){
+  const productLogs=useMemo(()=>logs.filter(log=>
+    String(log.product_id||'')===String(product.id||'')||String(log.product_name||'').startsWith(product.name||'')
+  ).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))),[logs,product]);
+  const recent=productLogs.slice(0,20);
+  const lastIn=productLogs.find(log=>log.movement_type==='in');
+  const lastOut=productLogs.find(log=>log.movement_type==='out');
+  const recentCustomer=productLogs.find(log=>log.customer_name)?.customer_name||'-';
+  const spec=[product.size,product.color].filter(value=>value&&value!=='없음').join(' / ')||'규격 없음';
+  return <Modal title="상품 입출고 상세" onClose={onClose}>
+    <div className="detail-hero">
+      {product.image_url?<img src={product.image_url} alt={product.name}/>:<div className="detail-image-empty">사진 없음</div>}
+      <div><small>{product.category||'상품'}</small><h3>{product.name}</h3><p>{spec}</p></div>
+      <div className="detail-stock"><small>현재 재고</small><strong>{formatQty(product.quantity)}</strong></div>
+    </div>
+    <div className="detail-stat-grid">
+      <div><small>전체 입출고</small><strong>{formatNumber(productLogs.length)}건</strong></div>
+      <div><small>마지막 입고</small><strong>{lastIn?new Date(lastIn.created_at).toLocaleDateString('ko-KR'):'-'}</strong></div>
+      <div><small>마지막 출고</small><strong>{lastOut?new Date(lastOut.created_at).toLocaleDateString('ko-KR'):'-'}</strong></div>
+      <div><small>최근 거래처</small><strong>{recentCustomer}</strong></div>
+    </div>
+    <div className="detail-section-title">최근 입출고 20건</div>
+    <div className="detail-history-list">
+      {recent.map(log=><article key={log.id}><span className={log.movement_type}>{log.movement_type==='in'?'입고':'출고'}</span><div><b>{new Date(log.created_at).toLocaleString('ko-KR')}</b><small>{[log.customer_name,log.staff_name,log.memo].filter(Boolean).join(' · ')||'추가 정보 없음'}</small></div><strong>{log.movement_type==='in'?'+':'-'}{formatQty(log.quantity)}</strong></article>)}
+      {!recent.length&&<Empty text="입출고 내역이 없습니다."/>}
+    </div>
+  </Modal>;
+}
+
+function CustomerDetailModal({customer,products,logs,receivableEntries,onOpenInvoice,onClose}){
+  const isReturn=log=>log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
+  const customerLogs=useMemo(()=>logs.filter(log=>
+    (log.movement_type==='out'||isReturn(log))&&
+    (String(log.customer_id||'')===String(customer.id)||(!log.customer_id&&log.customer_name===customer.name))
+  ).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))),[logs,customer]);
+  const productFor=log=>products.find(product=>String(product.id)===String(log.product_id))||products.find(product=>String(log.product_name||'').startsWith(product.name));
+  const amountFor=log=>{
+    const product=productFor(log);
+    const fallback=Number(customer.price_type==='retail'?product?.retail_price:product?.wholesale_price)||0;
+    return Number(log.quantity||0)*(Number(log.unit_price||fallback)||0)*(isReturn(log)?-1:1);
+  };
+  const totalAmount=customerLogs.reduce((sum,log)=>sum+amountFor(log),0);
+  const balance=(receivableEntries||[]).filter(entry=>String(entry.customerId||entry.customer_id||'')===String(customer.id)).reduce((sum,entry)=>sum+(entry.type==='payment'||entry.entry_type==='payment'?-1:1)*Number(entry.amount||0),0);
+  const groups=useMemo(()=>{
+    const map={};
+    customerLogs.forEach(log=>{const date=new Date(log.created_at).toLocaleDateString('en-CA');const returned=isReturn(log);const key=`${returned?'return':'out'}|${date}`;(map[key]??={key,date,returned,logs:[],amount:0}).logs.push(log);map[key].amount+=amountFor(log)});
+    return Object.values(map).sort((a,b)=>b.date.localeCompare(a.date));
+  },[customerLogs]);
+  return <Modal title="거래처 상세보기" onClose={onClose}>
+    <div className="customer-detail-head"><div><small>{customer.price_type==='retail'?'소매 단가 거래처':'도매 단가 거래처'}</small><h3>{customer.name}</h3><p>{customer.memo||'등록된 메모가 없습니다.'}</p></div></div>
+    <div className="customer-contact-grid"><div><small>받는 사람</small><strong>{customer.recipient_name||'-'}</strong></div><div><small>연락처</small><strong>{customer.phone||'-'}</strong></div><div className="wide"><small>주소</small><strong>{[customer.postal_code&&`(${customer.postal_code})`,customer.address,customer.address_detail].filter(Boolean).join(' ')||'-'}</strong></div></div>
+    <div className="detail-stat-grid customer-detail-stats"><div><small>총 거래금액</small><strong>{formatWon(totalAmount)}</strong></div><div><small>거래 건수</small><strong>{formatNumber(groups.length)}건</strong></div><div><small>최근 거래일</small><strong>{customerLogs[0]?new Date(customerLogs[0].created_at).toLocaleDateString('ko-KR'):'-'}</strong></div><div><small>미수금</small><strong className={balance>0?'danger-text':''}>{formatWon(Math.max(0,balance))}</strong></div></div>
+    <div className="detail-section-title">최근 거래명세표</div>
+    <div className="customer-invoice-list">{groups.slice(0,10).map(group=><article key={group.key}><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small>{group.returned?'반품':'출고'} · {formatNumber(group.logs.length)}개 품목 · {formatWon(group.amount)}</small></div><button type="button" onClick={()=>onOpenInvoice(group.logs)}><Printer size={15}/>명세표</button></article>)}{!groups.length&&<Empty text="거래내역이 없습니다."/>}</div>
+  </Modal>;
 }
 
 function downloadCsv(rows,name){
@@ -3059,6 +3137,40 @@ function Field({label,value,set,type='text',full}){
 }
 function Select({label,value,set,options,labels={}}){return <label>{label}<select value={value} onChange={e=>set(e.target.value)}>{options.map(option=><option key={option} value={option}>{labels[option]??(option||'선택 안 함')}</option>)}</select></label>}
 function normalizeError(error){return error?.message||String(error||'알 수 없는 오류가 발생했습니다.')}
+
+
+/* v6.5 상세 모달 및 숫자 UI */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v65-detail-ui')){
+  const style=document.createElement('style');
+  style.id='oto-v65-detail-ui';
+  style.textContent=`
+  .product-thumb-button{display:block;width:50px;height:50px;flex:0 0 50px;margin:0;padding:0;border:0;border-radius:8px;background:transparent;overflow:hidden;cursor:zoom-in}
+  .product-thumb-button .product-thumb{width:100%!important;height:100%!important}
+  .log-product-link,.customer-name-link{margin:0;padding:0;border:0;background:transparent;color:#155eef;font:inherit;font-weight:800;line-height:1.35;text-align:left;cursor:pointer;text-decoration:none}
+  .log-product-link:hover,.customer-name-link:hover{text-decoration:underline}
+  .image-viewer{display:grid;place-items:center;min-height:300px;padding:10px;background:#f8fafc;border-radius:12px}
+  .image-viewer img{display:block;max-width:100%;max-height:72vh;object-fit:contain;border-radius:10px}
+  .detail-hero{display:grid;grid-template-columns:84px minmax(0,1fr) auto;align-items:center;gap:16px;padding:16px;border:1px solid #e4e7ec;border-radius:14px;background:#fff}
+  .detail-hero>img,.detail-image-empty{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid #e4e7ec;background:#f8fafc}
+  .detail-image-empty{display:grid;place-items:center;color:#98a2b3;font-size:12px}
+  .detail-hero h3,.customer-detail-head h3{margin:3px 0 4px;font-size:21px;color:#101828}
+  .detail-hero p,.customer-detail-head p{margin:0;color:#667085;font-size:13px}
+  .detail-stock{text-align:right}.detail-stock small{display:block;color:#667085}.detail-stock strong{display:block;margin-top:5px;font-size:24px;color:#155eef}
+  .detail-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+  .detail-stat-grid>div,.customer-contact-grid>div{padding:13px;border:1px solid #e4e7ec;border-radius:11px;background:#fff;min-width:0}
+  .detail-stat-grid small,.customer-contact-grid small{display:block;color:#667085;font-size:11px}.detail-stat-grid strong,.customer-contact-grid strong{display:block;margin-top:6px;color:#101828;font-size:14px;word-break:break-word}
+  .detail-section-title{margin:18px 0 9px;font-size:14px;font-weight:800;color:#101828}
+  .detail-history-list,.customer-invoice-list{border:1px solid #e4e7ec;border-radius:12px;overflow:hidden;background:#fff;max-height:390px;overflow-y:auto}
+  .detail-history-list article{display:grid;grid-template-columns:54px minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid #eef1f5}
+  .detail-history-list article:last-child,.customer-invoice-list article:last-child{border-bottom:0}
+  .detail-history-list article>span{display:inline-grid;place-items:center;height:25px;border-radius:999px;font-size:11px;font-weight:800}.detail-history-list article>span.in{background:#ecfdf3;color:#067647}.detail-history-list article>span.out{background:#fff4ed;color:#c4320a}
+  .detail-history-list b{font-size:12px}.detail-history-list small{display:block;margin-top:3px;color:#667085;font-size:11px}.detail-history-list article>strong{font-variant-numeric:tabular-nums}
+  .customer-detail-head{padding:2px 2px 12px}.customer-contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.customer-contact-grid .wide{grid-column:1/-1}.danger-text{color:#d92d20!important}
+  .customer-invoice-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border-bottom:1px solid #eef1f5}.customer-invoice-list small{display:block;margin-top:4px;color:#667085;font-size:11px}.customer-invoice-list button{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  @media(max-width:700px){.detail-hero{grid-template-columns:68px minmax(0,1fr)}.detail-hero>img,.detail-image-empty{width:68px;height:68px}.detail-stock{grid-column:1/-1;text-align:left}.detail-stat-grid{grid-template-columns:1fr 1fr}.customer-contact-grid{grid-template-columns:1fr}.customer-contact-grid .wide{grid-column:auto}.detail-history-list article{grid-template-columns:48px minmax(0,1fr)}.detail-history-list article>strong{grid-column:2;text-align:left}}
+  `;
+  document.head.appendChild(style);
+}
 
 createRoot(document.getElementById('root')).render(<App/>);
 
