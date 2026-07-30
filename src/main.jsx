@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.3.0';
+const APP_VERSION='6.3.1';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -93,6 +93,68 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .invoice-note textarea{height:38px!important;min-height:38px!important;resize:none!important;padding:5px 7px!important;}
   .invoice-account input{height:28px!important;min-height:28px!important;padding:4px 7px!important;}
   .statement-summary strong{font-size:14px!important;}
+
+  /* v6.3.1 거래명세표 숫자열 정렬 통일 */
+  .invoice-items th:nth-child(4),
+  .invoice-items td:nth-child(4),
+  .invoice-items td:nth-child(4) input{
+    text-align:center!important;
+  }
+  .invoice-items th:nth-child(5),
+  .invoice-items th:nth-child(6),
+  .invoice-items th:nth-child(7){
+    text-align:center!important;
+  }
+  .invoice-items td:nth-child(5),
+  .invoice-items td:nth-child(6),
+  .invoice-items td:nth-child(7),
+  .invoice-items td:nth-child(5) input,
+  .invoice-items td:nth-child(6) input,
+  .invoice-items td:nth-child(7) input{
+    text-align:right!important;
+    padding-left:5px!important;
+    padding-right:5px!important;
+    font-variant-numeric:tabular-nums!important;
+  }
+  .invoice-items input[type=number]{-moz-appearance:textfield!important;}
+  .invoice-items input[type=number]::-webkit-inner-spin-button,
+  .invoice-items input[type=number]::-webkit-outer-spin-button{
+    -webkit-appearance:none!important;
+    margin:0!important;
+  }
+
+  /* 상·하 보관용 크기와 사방 여백을 완전히 동일하게 */
+  .invoice-sheet.portrait-double{
+    box-sizing:border-box!important;
+    display:grid!important;
+    grid-template-rows:minmax(0,1fr) 8mm minmax(0,1fr)!important;
+    align-items:stretch!important;
+    width:210mm!important;
+    min-height:297mm!important;
+    padding:10mm!important;
+    margin:0 auto!important;
+    gap:0!important;
+    background:#fff!important;
+  }
+  .invoice-sheet.portrait-double>.statement-copy{
+    min-width:0!important;
+    min-height:0!important;
+    height:100%!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  .invoice-sheet.portrait-double>.cut-line{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:100%!important;
+    height:8mm!important;
+    margin:0!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+    text-align:center!important;
+    white-space:nowrap!important;
+  }
 
   /* 거래처 거래현황을 우측 패널이 아닌 목록 아래 전체 너비로 표시 */
   .customer-layout{
@@ -218,8 +280,11 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   @media(max-width:620px){.selected-payment-bar{align-items:flex-start!important;flex-direction:column!important;}.selected-payment-bar button{width:100%!important;justify-content:center!important;}}
 
   @media print{
+    @page{size:A4 portrait;margin:0!important;}
+    html,body{width:210mm!important;height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;}
+    .invoice-overlay,.invoice-window{position:static!important;width:210mm!important;height:297mm!important;min-height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;}
+    .invoice-sheet.portrait-double{width:210mm!important;height:297mm!important;min-height:297mm!important;padding:10mm!important;margin:0!important;box-shadow:none!important;border:0!important;page-break-after:avoid!important;break-after:avoid-page!important;}
     .invoice-delete,.invoice-delete.no-print{display:none!important;visibility:hidden!important;}
-    .invoice-items td input{padding-right:2px!important;}
     .statement-copy{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }`;
   document.head.appendChild(style);
