@@ -4,15 +4,70 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.2.1';
+const APP_VERSION='5.2.3';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
   const style=document.createElement('style');
   style.id='oto-invoice-print-fix';
-  style.textContent=`@media print{
+  style.textContent=`
+  /* 거래명세표 상·하단 공통 정렬 */
+  .statement-copy{
+    width:100%;
+    box-sizing:border-box;
+    font-size:10.5px!important;
+    line-height:1.25;
+  }
+  .statement-copy table{
+    width:100%;
+    table-layout:fixed!important;
+    border-collapse:collapse!important;
+  }
+  .statement-copy th,
+  .statement-copy td,
+  .statement-copy input,
+  .statement-copy textarea{
+    box-sizing:border-box;
+    font-family:inherit!important;
+    font-size:10.5px!important;
+  }
+  .invoice-title-row h1{font-size:22px!important;line-height:1.15!important;}
+  .invoice-title-row span{font-size:9.5px!important;}
+
+  /* 공급자 영역의 시작선을 오른쪽으로 이동: 좌측 53%, 우측 47% */
+  .invoice-parties col.party-customer-vertical{width:2.5%!important;}
+  .invoice-parties col.party-customer-label{width:7%!important;}
+  .invoice-parties col.party-customer-data{width:18%!important;}
+  .invoice-parties col.party-customer-label-sub{width:7%!important;}
+  .invoice-parties col.party-customer-data-sub{width:18.5%!important;}
+  .invoice-parties col.party-supplier-vertical{width:2.5%!important;}
+  .invoice-parties col.party-supplier-label{width:7%!important;}
+  .invoice-parties col.party-supplier-data{width:16%!important;}
+  .invoice-parties col.party-supplier-label-sub{width:7%!important;}
+  .invoice-parties col.party-supplier-data-sub{width:14.5%!important;}
+  .invoice-parties th,.invoice-parties td{height:27px!important;padding:2px 4px!important;}
+  .invoice-parties input{width:100%!important;height:22px!important;padding:1px 3px!important;}
+
+  /* 월·일 칸 축소, 품목 칸 확대 */
+  .invoice-items col.invoice-col-month{width:5.5%!important;}
+  .invoice-items col.invoice-col-day{width:5.5%!important;}
+  .invoice-items col.invoice-col-item{width:43.5%!important;}
+  .invoice-items col.invoice-col-qty{width:8.5%!important;}
+  .invoice-items col.invoice-col-unit{width:12.5%!important;}
+  .invoice-items col.invoice-col-supply{width:14%!important;}
+  .invoice-items col.invoice-col-tax{width:10.5%!important;}
+  .invoice-items th,.invoice-items td{height:25px!important;padding:2px 4px!important;}
+  .invoice-items th:nth-child(1),.invoice-items td:nth-child(1),
+  .invoice-items th:nth-child(2),.invoice-items td:nth-child(2){text-align:center!important;padding-left:1px!important;padding-right:1px!important;}
+  .invoice-items th:nth-child(n+4),.invoice-items td:nth-child(n+4){text-align:right!important;}
+  .invoice-items td input{width:100%!important;height:21px!important;padding:1px 3px!important;}
+  .invoice-items td:nth-child(1) input,.invoice-items td:nth-child(2) input{text-align:center!important;padding:1px!important;}
+  .statement-summary strong{font-size:14px!important;}
+
+  @media print{
     .invoice-delete,.invoice-delete.no-print{display:none!important;visibility:hidden!important;}
     .invoice-items td input{padding-right:2px!important;}
+    .statement-copy{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }`;
   document.head.appendChild(style);
 }
@@ -1312,7 +1367,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3">{editable?<input value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/>:supplier.address}</td></tr>
       <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td>{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td><th>팩스</th><td>{editable?<input value={supplier.fax||''} onChange={e=>updateSupplier('fax',e.target.value)}/>:supplier.fax}</td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
-      <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
+      <table className="invoice-items"><colgroup><col className="invoice-col-month"/><col className="invoice-col-day"/><col className="invoice-col-item"/><col className="invoice-col-qty"/><col className="invoice-col-unit"/><col className="invoice-col-supply"/><col className="invoice-col-tax"/></colgroup><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
         <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
         <td>{editable?<input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/>:d[2]}</td>
