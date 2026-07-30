@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.2.0';
+const APP_VERSION='5.2.1';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -700,6 +700,7 @@ function postcode(done){
 function SalesDashboard({logs,products,customers}){
   const currentMonth=new Date().toLocaleDateString('en-CA').slice(0,7);
   const [month,setMonth]=useState(currentMonth);
+  const [invoiceData,setInvoiceData]=useState(null);
 
   const report=useMemo(()=>{
     const productMap=new Map(products.map(product=>[String(product.id),product]));
@@ -728,11 +729,14 @@ function SalesDashboard({logs,products,customers}){
         id:log.id,
         date:date.toLocaleDateString('en-CA'),
         customer:customer?.name||log.customer_name||'거래처 미지정',
+        customerId:customer?.id||log.customer_id||null,
+        customerRecord:customer||null,
         product:log.product_name||product?.name||'',
         quantity,
         unitPrice,
         amount,
-        isReturn
+        isReturn,
+        sourceLog:log
       });
     });
 
@@ -763,7 +767,18 @@ function SalesDashboard({logs,products,customers}){
     downloadCsv(data,`${month}_월별매출.csv`);
   }
 
-  return <section className="panel">
+  function openInvoice(row){
+    if(row.isReturn)return;
+    const customer=row.customerRecord||customers.find(item=>String(item.id)===String(row.customerId)||item.name===row.customer);
+    if(!customer){alert('거래처 정보를 찾을 수 없어 명세표를 열 수 없습니다.');return}
+    const sameDayLogs=report.rows
+      .filter(item=>!item.isReturn&&item.date===row.date&&item.customer===row.customer)
+      .map(item=>item.sourceLog)
+      .filter(Boolean);
+    setInvoiceData({customer,logs:sameDayLogs});
+  }
+
+  return <><section className="panel">
     <div className="toolbar">
       <div>
         <h3 style={{margin:'0 0 5px'}}>월별 매출 현황</h3>
@@ -799,7 +814,7 @@ function SalesDashboard({logs,products,customers}){
 
     <div className="table-wrap" style={{marginTop:22}}>
       <table>
-        <thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>금액</th></tr></thead>
+        <thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>금액</th><th>명세표</th></tr></thead>
         <tbody>
           {report.rows.map(row=><tr key={row.id}>
             <td data-label="날짜">{row.date}</td>
@@ -809,8 +824,9 @@ function SalesDashboard({logs,products,customers}){
             <td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td>
             <td data-label="단가">{row.unitPrice.toLocaleString()}원</td>
             <td data-label="금액"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td>
+            <td data-label="명세표">{row.isReturn?<span style={{color:'#98a2b3',fontSize:12}}>반품</span>:<button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap'}}><Printer size={14}/>명세표</button>}</td>
           </tr>)}
-          {!report.rows.length&&<tr><td colSpan="7"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}
+          {!report.rows.length&&<tr><td colSpan="8"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}
         </tbody>
       </table>
     </div>
@@ -818,7 +834,9 @@ function SalesDashboard({logs,products,customers}){
     <p style={{margin:'14px 2px 0',fontSize:12,color:'#667085'}}>
       과거 기록에 저장 단가가 없는 경우 현재 상품 단가와 거래처의 도매·소매 설정을 기준으로 계산됩니다.
     </p>
-  </section>;
+  </section>
+  {invoiceData&&<InvoiceModal customer={invoiceData.customer} products={products} logs={invoiceData.logs} onClose={()=>setInvoiceData(null)}/>} 
+  </>;
 }
 
 function ReturnFromLogModal({log,customer,product,alreadyReturned,profile,user,onClose,onSaved}){
