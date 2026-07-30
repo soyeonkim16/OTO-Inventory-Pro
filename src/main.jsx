@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.2.3';
+const APP_VERSION='5.2.4';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -34,17 +34,17 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .invoice-title-row h1{font-size:22px!important;line-height:1.15!important;}
   .invoice-title-row span{font-size:9.5px!important;}
 
-  /* 공급자 영역의 시작선을 오른쪽으로 이동: 좌측 53%, 우측 47% */
+  /* 공급자 영역을 조금 왼쪽으로 이동: 좌측 51%, 우측 49% */
   .invoice-parties col.party-customer-vertical{width:2.5%!important;}
   .invoice-parties col.party-customer-label{width:7%!important;}
-  .invoice-parties col.party-customer-data{width:18%!important;}
+  .invoice-parties col.party-customer-data{width:17%!important;}
   .invoice-parties col.party-customer-label-sub{width:7%!important;}
-  .invoice-parties col.party-customer-data-sub{width:18.5%!important;}
+  .invoice-parties col.party-customer-data-sub{width:17.5%!important;}
   .invoice-parties col.party-supplier-vertical{width:2.5%!important;}
   .invoice-parties col.party-supplier-label{width:7%!important;}
-  .invoice-parties col.party-supplier-data{width:16%!important;}
+  .invoice-parties col.party-supplier-data{width:17%!important;}
   .invoice-parties col.party-supplier-label-sub{width:7%!important;}
-  .invoice-parties col.party-supplier-data-sub{width:14.5%!important;}
+  .invoice-parties col.party-supplier-data-sub{width:15.5%!important;}
   .invoice-parties th,.invoice-parties td{height:27px!important;padding:2px 4px!important;}
   .invoice-parties input{width:100%!important;height:22px!important;padding:1px 3px!important;}
 
@@ -59,7 +59,8 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .invoice-items th,.invoice-items td{height:25px!important;padding:2px 4px!important;}
   .invoice-items th:nth-child(1),.invoice-items td:nth-child(1),
   .invoice-items th:nth-child(2),.invoice-items td:nth-child(2){text-align:center!important;padding-left:1px!important;padding-right:1px!important;}
-  .invoice-items th:nth-child(n+4),.invoice-items td:nth-child(n+4){text-align:right!important;}
+  .invoice-items th:nth-child(n+4),.invoice-items td:nth-child(n+4){text-align:center!important;vertical-align:middle!important;}
+  .invoice-items td:nth-child(n+4) input{text-align:center!important;}
   .invoice-items td input{width:100%!important;height:21px!important;padding:1px 3px!important;}
   .invoice-items td:nth-child(1) input,.invoice-items td:nth-child(2) input{text-align:center!important;padding:1px!important;}
   .statement-summary strong{font-size:14px!important;}
