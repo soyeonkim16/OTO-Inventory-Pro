@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.4.3';
+const APP_VERSION='6.4.4';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -884,6 +884,33 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v642-ui-final'))
     border-radius:10px!important;
     box-shadow:none!important;
     background:#fff!important;
+  }
+
+  /* v6.4.4 직원관리 탭 제목/설명 글꼴 통일 */
+  .employee-panel .tab-intro-text,
+  .employee-panel .tab-intro-text *{
+    font-family:inherit!important;
+    letter-spacing:normal!important;
+  }
+  .employee-panel .tab-intro .employee-title{
+    margin:0 0 6px!important;
+    padding:0!important;
+    font-family:inherit!important;
+    font-size:19px!important;
+    line-height:1.3!important;
+    font-weight:800!important;
+    color:var(--oto-text)!important;
+    text-align:left!important;
+  }
+  .employee-panel .tab-intro .employee-subtitle{
+    margin:0!important;
+    padding:0!important;
+    font-family:inherit!important;
+    font-size:13px!important;
+    line-height:1.5!important;
+    font-weight:400!important;
+    color:var(--oto-muted)!important;
+    text-align:left!important;
   }
 
   footer{margin-top:20px!important;color:#98a2b3!important;font-size:12px!important;}
