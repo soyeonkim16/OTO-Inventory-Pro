@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.4.0';
+const APP_VERSION='6.4.1';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -266,10 +266,103 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .customer-history-inline .daily-items{padding:8px 12px!important;}
   .customer-history-inline button{white-space:nowrap!important;word-break:keep-all!important;}
 
+  /* v6.4.1 모든 탭 상단 안내 영역 통일 */
+  .tab-intro{
+    min-height:92px!important;
+    padding:18px 20px!important;
+    margin:0 0 14px!important;
+    border:1px solid #dfe6f1!important;
+    border-radius:15px!important;
+    background:#f6f8fc!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:20px!important;
+    box-sizing:border-box!important;
+    text-align:left!important;
+  }
+  .tab-intro-text{
+    min-width:220px!important;
+    flex:1 1 auto!important;
+    text-align:left!important;
+  }
+  .tab-intro h3,
+  .tab-intro .panel-title,
+  .tab-intro .employee-title{
+    margin:0 0 6px!important;
+    padding:0!important;
+    font-size:18px!important;
+    line-height:1.35!important;
+    font-weight:700!important;
+    color:#101828!important;
+    text-align:left!important;
+  }
+  .tab-intro p,
+  .tab-intro .employee-subtitle{
+    margin:0!important;
+    padding:0!important;
+    font-size:13px!important;
+    line-height:1.45!important;
+    color:#667085!important;
+    text-align:left!important;
+  }
+  .tab-intro-actions,
+  .movement-entry-controls{
+    flex:0 1 52%!important;
+    min-width:360px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:10px!important;
+    flex-wrap:nowrap!important;
+  }
+  .tab-intro-actions select,
+  .movement-entry-controls select{
+    flex:1 1 auto!important;
+    width:auto!important;
+    min-width:240px!important;
+    height:42px!important;
+    min-height:42px!important;
+    padding:0 12px!important;
+    border:1px solid #d0d5dd!important;
+    border-radius:10px!important;
+    background:#fff!important;
+    font-size:14px!important;
+    text-align:left!important;
+  }
+  .tab-intro-actions button,
+  .movement-entry-controls button{
+    min-height:42px!important;
+    height:42px!important;
+    padding:0 16px!important;
+    white-space:nowrap!important;
+  }
+  .movement-entry{
+    min-height:92px!important;
+    padding:18px 20px!important;
+    margin:0 0 14px!important;
+    border:1px solid #dfe6f1!important;
+    border-radius:15px!important;
+    background:#f6f8fc!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:20px!important;
+    text-align:left!important;
+  }
+  .movement-entry>div:first-child{flex:1 1 auto!important;min-width:220px!important;text-align:left!important;}
+  .movement-entry .panel-title{margin:0 0 6px!important;font-size:18px!important;line-height:1.35!important;text-align:left!important;}
+  .movement-entry p{margin:0!important;font-size:13px!important;line-height:1.45!important;color:#667085!important;text-align:left!important;}
+
   @media(max-width:1280px){
     .customer-history-inline{grid-template-columns:minmax(230px,.8fr) minmax(0,1.2fr)!important;}
     .customer-history-inline .receivable-history-block{grid-column:2!important;grid-row:2/span 2!important;}
     .customer-history-inline .daily-shipments{grid-column:1/-1!important;grid-row:auto!important;}
+  }
+  @media(max-width:820px){
+    .tab-intro,.movement-entry{display:block!important;min-height:0!important;padding:16px!important;}
+    .tab-intro-actions,.movement-entry-controls{min-width:0!important;width:100%!important;margin-top:14px!important;flex-wrap:wrap!important;justify-content:flex-start!important;}
+    .tab-intro-actions select,.movement-entry-controls select{width:100%!important;min-width:0!important;flex-basis:100%!important;}
   }
   @media(max-width:820px){
     html{overflow-y:auto!important;scrollbar-gutter:auto!important;}
@@ -876,9 +969,12 @@ function App(){
 
       {tab==='inventory'&&
         <section className="panel">
+          <div className="tab-intro">
+            <div className="tab-intro-text"><h3>재고 관리</h3><p>상품의 재고 현황을 확인하고 관리할 수 있습니다.</p></div>
+            <div className="tab-intro-actions">{isAdmin&&<button className="primary" onClick={()=>setProductModal(emptyProduct)}><Plus size={18}/>상품 등록</button>}</div>
+          </div>
           <div className="toolbar">
             <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품명, 사이즈, 색상 검색"/></div>
-            {isAdmin&&<button className="primary" onClick={()=>setProductModal(emptyProduct)}><Plus size={18}/>상품 등록</button>}
           </div>
           <div className="table-wrap">
             <table>
@@ -1375,12 +1471,9 @@ function SalesDashboard({logs,products,customers}){
   }
 
   return <><section className="panel">
-    <div className="toolbar">
-      <div>
-        <h3 style={{margin:'0 0 5px'}}>월별 매출 현황</h3>
-        <p style={{margin:0,color:'#667085',fontSize:13}}>출고매출에서 반품금액을 차감한 순매출입니다.</p>
-      </div>
-      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+    <div className="tab-intro">
+      <div className="tab-intro-text"><h3>월별 매출 현황</h3><p>출고매출에서 반품금액을 차감한 순매출입니다.</p></div>
+      <div className="tab-intro-actions">
         <input type="month" value={month} onChange={event=>setMonth(event.target.value)} style={{minHeight:42,padding:'0 12px',border:'1px solid #d0d5dd',borderRadius:10}}/>
         <button className="ghost" onClick={download}><Download size={17}/>엑셀 저장</button>
       </div>
@@ -1827,7 +1920,11 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   </div>:null;
 
   return <section className="panel customer-panel">
-    <div className="toolbar"><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="거래처명, 받는 사람, 연락처 검색"/></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button>{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>거래처 등록</button>}</div></div>
+    <div className="tab-intro">
+      <div className="tab-intro-text"><h3>거래처 관리</h3><p>거래처 정보와 거래내역, 미수금을 확인하고 관리할 수 있습니다.</p></div>
+      <div className="tab-intro-actions">{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>거래처 등록</button>}</div>
+    </div>
+    <div className="toolbar"><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="거래처명, 받는 사람, 연락처 검색"/></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button></div></div>
     {receivableError&&<div className="error" style={{marginBottom:12}}>미수금 불러오기 실패: {receivableError}<br/><small>먼저 제공된 Supabase SQL을 실행했는지 확인하세요.</small></div>}
     <div className="customer-layout">
       <div className="customer-list-area">
@@ -2410,12 +2507,12 @@ function EmployeeManagement({session,currentUserId}){
   }
 
   return <section className="panel employee-panel">
-    <div className="toolbar">
-      <div>
+    <div className="tab-intro">
+      <div className="tab-intro-text">
         <h3 className="employee-title">직원 계정 관리</h3>
         <p className="employee-subtitle">직원 생성, 권한 변경, 계정 중지와 비밀번호 변경을 관리합니다.</p>
       </div>
-      <button className="primary" onClick={()=>setCreateOpen(true)}><Plus size={18}/>직원 추가</button>
+      <div className="tab-intro-actions"><button className="primary" onClick={()=>setCreateOpen(true)}><Plus size={18}/>직원 추가</button></div>
     </div>
 
     {error&&<div className="error employee-error">{error}</div>}
