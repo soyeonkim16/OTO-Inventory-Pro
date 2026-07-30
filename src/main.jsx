@@ -768,14 +768,17 @@ function SalesDashboard({logs,products,customers}){
   }
 
   function openInvoice(row){
-    if(row.isReturn)return;
     const customer=row.customerRecord||customers.find(item=>String(item.id)===String(row.customerId)||item.name===row.customer);
     if(!customer){alert('거래처 정보를 찾을 수 없어 명세표를 열 수 없습니다.');return}
+
+    // 같은 날짜·같은 거래처의 동일 구분(출고 또는 반품) 품목만 한 장으로 묶습니다.
+    // 반품 명세표는 InvoiceModal에서 수량과 금액이 음수로 표시됩니다.
     const sameDayLogs=report.rows
-      .filter(item=>!item.isReturn&&item.date===row.date&&item.customer===row.customer)
+      .filter(item=>item.isReturn===row.isReturn&&item.date===row.date&&item.customer===row.customer)
       .map(item=>item.sourceLog)
       .filter(Boolean);
-    setInvoiceData({customer,logs:sameDayLogs});
+
+    setInvoiceData({customer,logs:sameDayLogs,isReturn:row.isReturn});
   }
 
   return <><section className="panel">
@@ -824,7 +827,7 @@ function SalesDashboard({logs,products,customers}){
             <td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td>
             <td data-label="단가">{row.unitPrice.toLocaleString()}원</td>
             <td data-label="금액"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td>
-            <td data-label="명세표">{row.isReturn?<span style={{color:'#98a2b3',fontSize:12}}>반품</span>:<button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap'}}><Printer size={14}/>명세표</button>}</td>
+            <td data-label="명세표"><button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap',color:row.isReturn?'#d92d20':undefined,borderColor:row.isReturn?'#fecdca':undefined}}><Printer size={14}/>{row.isReturn?'반품 명세표':'명세표'}</button></td>
           </tr>)}
           {!report.rows.length&&<tr><td colSpan="8"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}
         </tbody>
