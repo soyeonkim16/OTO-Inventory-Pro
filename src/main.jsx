@@ -503,6 +503,11 @@ function Login(){
 }
 
 function Stat({label,value,danger}){return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{Number(value).toLocaleString()}</strong></div>}
+function SalesStat({label,value,suffix='',danger}){
+  const number=Number(value);
+  const safeValue=Number.isFinite(number)?number:0;
+  return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{safeValue.toLocaleString()}{suffix}</strong></div>;
+}
 function Badge({p}){const q=Number(p.quantity),m=Number(p.minimum_quantity);return <span className={'badge '+(q===0?'out':q<=m?'low':'ok')}>{q===0?'품절':q<=m?'부족':'정상'}</span>}
 function Empty({text}){return <div className="empty">{text}</div>}
 
@@ -753,7 +758,7 @@ function SalesDashboard({logs,products,customers}){
       ['날짜','구분','거래처','품목','수량','단가','금액'],
       ...report.rows.map(row=>[row.date,row.isReturn?'반품':'출고',row.customer,row.product,row.isReturn?-row.quantity:row.quantity,row.unitPrice,row.isReturn?-row.amount:row.amount])
     ];
-    csvDownload(`${month}_월별매출.csv`,data);
+    downloadCsv(data,`${month}_월별매출.csv`);
   }
 
   return <section className="panel">
@@ -769,10 +774,10 @@ function SalesDashboard({logs,products,customers}){
     </div>
 
     <div className="stats" style={{marginTop:18}}>
-      <Stat label="출고 매출" value={`${report.gross.toLocaleString()}원`}/>
-      <Stat label="반품 금액" value={`${report.returns.toLocaleString()}원`} danger={report.returns>0}/>
-      <Stat label="순매출" value={`${report.net.toLocaleString()}원`}/>
-      <Stat label="거래 건수" value={`${report.rows.length}건`}/>
+      <SalesStat label="출고 매출" value={report.gross} suffix="원"/>
+      <SalesStat label="반품 금액" value={report.returns} suffix="원" danger={report.returns>0}/>
+      <SalesStat label="순매출" value={report.net} suffix="원"/>
+      <SalesStat label="거래 건수" value={report.rows.length} suffix="건"/>
     </div>
 
     <div className="table-wrap" style={{marginTop:18}}>
