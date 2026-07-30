@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.0.0';
+const APP_VERSION='6.0.1';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -63,6 +63,34 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .invoice-items td:nth-child(n+4) input{text-align:center!important;}
   .invoice-items td input{width:100%!important;height:21px!important;padding:1px 3px!important;}
   .invoice-items td:nth-child(1) input,.invoice-items td:nth-child(2) input{text-align:center!important;padding:1px!important;}
+
+  /* v6.0.1: 상단/하단 명세표가 완전히 같은 DOM과 치수를 사용 */
+  .statement-copy input,
+  .statement-copy textarea{
+    display:block!important;
+    width:100%!important;
+    margin:0!important;
+    border:0!important;
+    outline:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    color:inherit!important;
+    font:inherit!important;
+    line-height:1.25!important;
+    box-shadow:none!important;
+  }
+  .statement-copy input[readonly],
+  .statement-copy textarea[readonly]{pointer-events:none!important;}
+  .invoice-parties td{vertical-align:middle!important;overflow:hidden!important;}
+  .invoice-parties td input{height:22px!important;min-height:22px!important;}
+  .invoice-items td{vertical-align:middle!important;overflow:hidden!important;}
+  .invoice-items td input{height:21px!important;min-height:21px!important;}
+  .invoice-note,
+  .invoice-account{display:grid!important;grid-template-columns:70px 1fr!important;align-items:stretch!important;}
+  .invoice-note>b,
+  .invoice-account>b{display:flex!important;align-items:center!important;justify-content:center!important;}
+  .invoice-note textarea{height:38px!important;min-height:38px!important;resize:none!important;padding:5px 7px!important;}
+  .invoice-account input{height:28px!important;min-height:28px!important;padding:4px 7px!important;}
   .statement-summary strong{font-size:14px!important;}
 
   /* 거래처 거래현황을 우측 패널이 아닌 목록 아래 전체 너비로 표시 */
@@ -1644,6 +1672,15 @@ function InvoiceModal({customer,logs,products,onClose}){
   const parseMoney=value=>String(value??'').replace(/[^0-9.-]/g,'');
 
   function renderStatementCopy({copyLabel,editable=false}){
+    const readOnly=!editable;
+    const inputProps=(value,onChange,extra={})=>({
+      value:value??'',
+      readOnly,
+      tabIndex:readOnly?-1:undefined,
+      onChange:editable?onChange:undefined,
+      ...extra
+    });
+
     return <section className="statement-copy">
       <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>({copyLabel})</span></div>
       <table className="invoice-parties"><colgroup>
@@ -1651,22 +1688,24 @@ function InvoiceModal({customer,logs,products,onClose}){
         <col className="party-supplier-vertical"/><col className="party-supplier-label"/><col className="party-supplier-data"/><col className="party-supplier-label-sub"/><col className="party-supplier-data-sub"/>
       </colgroup><tbody><tr>
         <th className="vertical-label" rowSpan="4">공급받는자</th><th>상호</th><td colSpan="3">{customer.name||''}</td>
-        <th className="vertical-label" rowSpan="4">공급자</th><th>등록번호</th><td colSpan="3">{editable?<input value={supplier.registrationNumber} onChange={e=>updateSupplier('registrationNumber',e.target.value)}/>:supplier.registrationNumber}</td>
-      </tr><tr><th>성명</th><td colSpan="3">{customer.recipient_name||''}</td><th>상호</th><td>{editable?<input value={supplier.businessName} onChange={e=>updateSupplier('businessName',e.target.value)}/>:supplier.businessName}</td><th>성명</th><td>{editable?<input value={supplier.representative} onChange={e=>updateSupplier('representative',e.target.value)}/>:supplier.representative}</td></tr>
-      <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3">{editable?<input value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/>:supplier.address}</td></tr>
-      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td>{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td><th>팩스</th><td>{editable?<input value={supplier.fax||''} onChange={e=>updateSupplier('fax',e.target.value)}/>:supplier.fax}</td></tr></tbody></table>
+        <th className="vertical-label" rowSpan="4">공급자</th><th>등록번호</th><td colSpan="3"><input {...inputProps(supplier.registrationNumber,e=>updateSupplier('registrationNumber',e.target.value))}/></td>
+      </tr><tr><th>성명</th><td colSpan="3">{customer.recipient_name||''}</td><th>상호</th><td><input {...inputProps(supplier.businessName,e=>updateSupplier('businessName',e.target.value))}/></td><th>성명</th><td><input {...inputProps(supplier.representative,e=>updateSupplier('representative',e.target.value))}/></td></tr>
+      <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3"><input {...inputProps(supplier.address,e=>updateSupplier('address',e.target.value))}/></td></tr>
+      <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td><input {...inputProps(supplier.phone,e=>updateSupplier('phone',e.target.value))}/></td><th>팩스</th><td><input {...inputProps(supplier.fax||'',e=>updateSupplier('fax',e.target.value))}/></td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
       <table className="invoice-items"><colgroup><col className="invoice-col-month"/><col className="invoice-col-day"/><col className="invoice-col-item"/><col className="invoice-col-qty"/><col className="invoice-col-unit"/><col className="invoice-col-supply"/><col className="invoice-col-tax"/></colgroup><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
-        <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
-        <td>{editable?<input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/>:d[2]}</td>
-        <td style={{position:'relative'}}>{editable?<><input style={{paddingRight:24}} value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/><button type="button" className="invoice-delete no-print" title="이 품목 삭제" aria-label="이 품목 삭제" style={{position:'absolute',right:3,top:'50%',transform:'translateY(-50%)',width:24,height:24,padding:0,border:'none',background:'transparent',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>{if(items.length<=1){window.alert('거래명세표에는 품목이 최소 1개 필요합니다.');return;}setItems(current=>current.filter((_,i)=>i!==index));}}><Trash2 size={15}/></button></>:item.name}</td>
-        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td><td>{editable?<input className="money-input" inputMode="numeric" value={fmt(item.unitPrice)} onChange={e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/>:fmt(item.unitPrice)}</td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>
+        <td><input {...inputProps(d[1]||'',e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`))}/></td>
+        <td><input {...inputProps(d[2]||'',e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`))}/></td>
+        <td style={{position:'relative'}}><input style={{paddingRight:24}} {...inputProps(item.name,e=>updateItem(index,'name',e.target.value))}/>{editable&&<button type="button" className="invoice-delete no-print" title="이 품목 삭제" aria-label="이 품목 삭제" style={{position:'absolute',right:3,top:'50%',transform:'translateY(-50%)',width:24,height:24,padding:0,border:'none',background:'transparent',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>{if(items.length<=1){window.alert('거래명세표에는 품목이 최소 1개 필요합니다.');return;}setItems(current=>current.filter((_,i)=>i!==index));}}><Trash2 size={15}/></button>}</td>
+        <td><input type="number" min="0" {...inputProps(item.quantity,e=>updateItem(index,'quantity',e.target.value))}/></td>
+        <td><input className="money-input" inputMode="numeric" {...inputProps(fmt(item.unitPrice),e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/></td>
+        <td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>
       </tr>})}
       {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}
       </tbody><tfoot><tr><th className="total-label" colSpan="5">합계</th><td className="money total-money">{fmt(supplyTotal)}</td><td className="money total-money">{fmt(taxTotal)}</td></tr></tfoot></table>
-      <div className="invoice-note"><b>비고</b>{editable?<textarea placeholder="비고 내용을 입력하세요" value={note} onChange={e=>setNote(e.target.value)}/>:<div>{note}</div>}</div>
-      <div className="invoice-account"><b>입금계좌</b>{editable?<input placeholder="예: 국민은행 000000-00-000000 예금주 OTO" value={supplier.bankAccount||''} onChange={e=>updateSupplier('bankAccount',e.target.value)}/>:<div>{supplier.bankAccount||''}</div>}</div>
+      <div className="invoice-note"><b>비고</b><textarea placeholder={editable?'비고 내용을 입력하세요':''} {...inputProps(note,e=>setNote(e.target.value))}/></div>
+      <div className="invoice-account"><b>입금계좌</b><input placeholder={editable?'예: 국민은행 000000-00-000000 예금주 OTO':''} {...inputProps(supplier.bankAccount||'',e=>updateSupplier('bankAccount',e.target.value))}/></div>
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
     </section>
   }
