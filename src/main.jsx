@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.2.3';
+const APP_VERSION='6.3.0';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -392,6 +392,24 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v61-ui')){
     .customer-history-inline .customer-history-head{align-items:flex-start!important;}
     .customer-history-inline .customer-history-head>div:last-child{width:100%!important;margin-top:8px!important;}
   }
+  .product-cell{display:flex;align-items:center;gap:12px;min-width:210px;}
+  .product-thumb{width:56px;height:56px;flex:0 0 56px;border-radius:10px;object-fit:cover;background:#f3f4f6;border:1px solid #e5e7eb;}
+  .product-thumb-empty{display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:10px;text-align:center;line-height:1.2;}
+  .product-info{display:flex;flex-direction:column;min-width:0;}
+  .product-info b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .image-upload-field{grid-column:1/-1;display:grid;gap:10px;}
+  .image-upload-box{display:flex;align-items:center;gap:14px;padding:12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;}
+  .image-preview{width:96px;height:96px;flex:0 0 96px;border-radius:12px;object-fit:cover;background:#fff;border:1px solid #e5e7eb;}
+  .image-preview-empty{display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;text-align:center;}
+  .image-upload-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px;}
+  .image-upload-actions input[type=file]{max-width:100%;font-size:13px;}
+  .image-help{font-size:12px;color:#64748b;line-height:1.45;}
+  .image-remove{display:flex;align-items:center;gap:6px;font-size:13px;color:#475569;}
+  @media(max-width:700px){
+    .product-cell{min-width:0;}
+    .product-thumb{width:48px;height:48px;flex-basis:48px;}
+    .image-upload-box{align-items:flex-start;flex-direction:column;}
+  }
   @media print{
     .app>header,.app nav,.stats{display:none!important;}
   }`;
@@ -410,7 +428,7 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
   realtime:{params:{eventsPerSecond:4}}
 });
 
-const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,wholesale_price:0,retail_price:0,memo:''};
+const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,wholesale_price:0,retail_price:0,memo:'',image_url:null};
 const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',price_type:'wholesale',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 const RECEIVABLE_STORAGE_KEY='oto_receivable_entries';
@@ -789,7 +807,10 @@ function App(){
               <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>도매가</th><th>소매가</th><th>재고</th><th>상태</th><th></th></tr></thead>
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
-                  <td data-label="상품"><b>{p.name}</b><small>{p.category}</small></td>
+                  <td data-label="상품"><div className="product-cell">
+                    {p.image_url?<img className="product-thumb" src={p.image_url} alt={p.name} loading="lazy"/>:<div className="product-thumb product-thumb-empty">사진<br/>없음</div>}
+                    <div className="product-info"><b>{p.name}</b><small>{p.category}</small></div>
+                  </div></td>
                   <td data-label="사이즈">{p.size||'없음'}</td>
                   <td data-label="색상">{p.color||'없음'}</td>
                   <td data-label="도매가">{Number(p.wholesale_price||0).toLocaleString()}원</td>
@@ -919,26 +940,70 @@ function Badge({p}){const q=Number(p.quantity),m=Number(p.minimum_quantity);retu
 function Empty({text}){return <div className="empty">{text}</div>}
 
 function ProductModal({value,onClose,onSaved}){
-  const [form,setForm]=useState({...value});
+  const [form,setForm]=useState({...value,image_url:value.image_url||null});
+  const [imageFile,setImageFile]=useState(null);
+  const [imagePreview,setImagePreview]=useState(value.image_url||'');
+  const [removeImage,setRemoveImage]=useState(false);
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
+
+  useEffect(()=>()=>{
+    if(imagePreview&&imagePreview.startsWith('blob:'))URL.revokeObjectURL(imagePreview);
+  },[imagePreview]);
+
+  function chooseImage(event){
+    const file=event.target.files?.[0];
+    if(!file)return;
+    if(!file.type.startsWith('image/')){
+      setError('이미지 파일만 등록할 수 있습니다.');
+      event.target.value='';
+      return;
+    }
+    if(file.size>5*1024*1024){
+      setError('사진 용량은 5MB 이하로 선택해주세요.');
+      event.target.value='';
+      return;
+    }
+    if(imagePreview&&imagePreview.startsWith('blob:'))URL.revokeObjectURL(imagePreview);
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setRemoveImage(false);
+    setError('');
+  }
+
+  async function uploadProductImage(file){
+    const extension=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+    const safeName=`${crypto.randomUUID?.()||Date.now()}-${Date.now()}.${extension}`;
+    const path=`products/${safeName}`;
+    const upload=await supabase.storage.from('product-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+    if(upload.error)throw upload.error;
+    const {data}=supabase.storage.from('product-images').getPublicUrl(path);
+    if(!data?.publicUrl)throw new Error('업로드한 사진 주소를 만들지 못했습니다.');
+    return data.publicUrl;
+  }
+
   async function save(event){
     event.preventDefault();
     if(saving)return;
     setSaving(true);setError('');
-    const payload={
-      name:form.name.trim(),
-      category:form.category.trim(),
-      size:form.size,
-      color:form.color,
-      quantity:Number(form.quantity),
-      minimum_quantity:Number(form.minimum_quantity),
-      wholesale_price:Number(form.wholesale_price||0),
-      retail_price:Number(form.retail_price||0),
-      memo:form.memo?.trim()||null,
-      updated_at:new Date().toISOString()
-    };
+    let uploadedImageUrl=form.image_url||null;
     try{
+      if(imageFile)uploadedImageUrl=await uploadProductImage(imageFile);
+      else if(removeImage)uploadedImageUrl=null;
+
+      const payload={
+        name:form.name.trim(),
+        category:form.category.trim(),
+        size:form.size,
+        color:form.color,
+        quantity:Number(form.quantity),
+        minimum_quantity:Number(form.minimum_quantity),
+        wholesale_price:Number(form.wholesale_price||0),
+        retail_price:Number(form.retail_price||0),
+        memo:form.memo?.trim()||null,
+        image_url:uploadedImageUrl,
+        updated_at:new Date().toISOString()
+      };
       const result=form.id
         ?await supabase.from('products').update(payload).eq('id',form.id)
         :await supabase.from('products').insert({...payload,sku:makeInternalSku(form)});
@@ -950,6 +1015,26 @@ function ProductModal({value,onClose,onSaved}){
   }
   return <Modal title={form.id?'상품 수정':'상품 등록'} onClose={onClose}>
     <form onSubmit={save} className="form-grid">
+      <label className="image-upload-field">
+        <span>상품 사진</span>
+        <div className="image-upload-box">
+          {imagePreview&&!removeImage
+            ?<img className="image-preview" src={imagePreview} alt="상품 사진 미리보기"/>
+            :<div className="image-preview image-preview-empty">상품 사진<br/>미리보기</div>}
+          <div className="image-upload-actions">
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={chooseImage}/>
+            <div className="image-help">JPG, PNG, WEBP · 최대 5MB<br/>정사각형 사진을 사용하면 가장 깔끔합니다.</div>
+            {(form.image_url||imageFile)&&<label className="image-remove">
+              <input type="checkbox" checked={removeImage} onChange={e=>{
+                setRemoveImage(e.target.checked);
+                if(e.target.checked)setImageFile(null);
+                setImagePreview(e.target.checked?'':(form.image_url||''));
+              }}/>
+              사진 삭제
+            </label>}
+          </div>
+        </div>
+      </label>
       <Field label="상품명" value={form.name} set={v=>setForm({...form,name:v})}/>
       <Select label="사이즈" value={form.size} set={v=>setForm({...form,size:v})} options={['없음','소','중','대']}/>
       <Select label="색상" value={form.color} set={v=>setForm({...form,color:v})} options={['없음','투명','검정','기타']}/>
