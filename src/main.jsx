@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.4.2';
+const APP_VERSION='6.4.3';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -3036,4 +3036,138 @@ if('serviceWorker'in navigator){
       console.warn('Service worker registration failed',error);
     }
   });
+}
+
+
+/* v6.4.3 거래명세표 인쇄 전용 레이아웃 복구
+   화면 UI 스타일과 완전히 분리하여 A4 첫 페이지의 좌측 상단부터 출력합니다. */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v643-invoice-print-reset')){
+  const invoicePrintStyle=document.createElement('style');
+  invoicePrintStyle.id='oto-v643-invoice-print-reset';
+  invoicePrintStyle.textContent=`
+  @media print{
+    @page{size:A4 portrait;margin:0!important;}
+
+    html,body,#root{
+      width:210mm!important;
+      height:297mm!important;
+      min-width:210mm!important;
+      min-height:297mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:visible!important;
+      background:#fff!important;
+    }
+
+    /* 앱 화면은 인쇄에서 제외하고 명세표 포털만 표시 */
+    body *{visibility:hidden!important;}
+    .invoice-overlay,
+    .invoice-overlay *{visibility:visible!important;}
+
+    .invoice-overlay{
+      display:block!important;
+      position:fixed!important;
+      inset:0!important;
+      top:0!important;
+      left:0!important;
+      right:auto!important;
+      bottom:auto!important;
+      width:210mm!important;
+      height:297mm!important;
+      min-width:210mm!important;
+      min-height:297mm!important;
+      margin:0!important;
+      padding:0!important;
+      border:0!important;
+      border-radius:0!important;
+      background:#fff!important;
+      overflow:hidden!important;
+      transform:none!important;
+      z-index:2147483647!important;
+    }
+
+    .invoice-window{
+      display:block!important;
+      position:absolute!important;
+      inset:0!important;
+      top:0!important;
+      left:0!important;
+      width:210mm!important;
+      height:297mm!important;
+      min-width:210mm!important;
+      min-height:297mm!important;
+      max-width:none!important;
+      max-height:none!important;
+      margin:0!important;
+      padding:0!important;
+      border:0!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      background:#fff!important;
+      overflow:hidden!important;
+      transform:none!important;
+    }
+
+    .invoice-toolbar,
+    .invoice-archive,
+    .no-print{display:none!important;}
+
+    .invoice-sheet.portrait-double{
+      display:grid!important;
+      grid-template-rows:148.5mm 148.5mm!important;
+      position:absolute!important;
+      inset:0!important;
+      top:0!important;
+      left:0!important;
+      width:210mm!important;
+      height:297mm!important;
+      min-width:210mm!important;
+      min-height:297mm!important;
+      max-width:210mm!important;
+      max-height:297mm!important;
+      margin:0!important;
+      padding:0!important;
+      gap:0!important;
+      border:0!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      background:#fff!important;
+      overflow:hidden!important;
+      transform:none!important;
+      break-before:avoid-page!important;
+      break-after:avoid-page!important;
+      page-break-before:avoid!important;
+      page-break-after:avoid!important;
+    }
+
+    .invoice-sheet.portrait-double>.statement-copy{
+      width:210mm!important;
+      height:148.5mm!important;
+      min-height:148.5mm!important;
+      max-height:148.5mm!important;
+      margin:0!important;
+      padding:8mm!important;
+      box-sizing:border-box!important;
+      overflow:hidden!important;
+      break-inside:avoid!important;
+      page-break-inside:avoid!important;
+    }
+
+    .invoice-sheet.portrait-double>.cut-line{
+      display:block!important;
+      visibility:visible!important;
+      position:absolute!important;
+      left:8mm!important;
+      right:8mm!important;
+      top:148.5mm!important;
+      width:auto!important;
+      height:0!important;
+      margin:0!important;
+      padding:0!important;
+      border:0!important;
+      border-top:1px dashed #777!important;
+      transform:translateY(-0.5px)!important;
+    }
+  }`;
+  document.head.appendChild(invoicePrintStyle);
 }
