@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.4.4';
+const APP_VERSION='6.4.5';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -47,6 +47,14 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .invoice-parties col.party-supplier-label-sub{width:7%!important;}
   .invoice-parties col.party-supplier-data-sub{width:15.5%!important;}
   .invoice-parties th,.invoice-parties td{height:27px!important;padding:2px 4px!important;}
+  /* 공급받는자·공급자 제목 칸: 가로·세로 정중앙 */
+  .invoice-parties th.vertical-label{
+    text-align:center!important;
+    vertical-align:middle!important;
+    padding:0!important;
+    line-height:1.35!important;
+    white-space:nowrap!important;
+  }
   .invoice-parties input{width:100%!important;height:22px!important;padding:1px 3px!important;}
 
   /* 월·일 칸 축소, 품목 칸 확대 */
