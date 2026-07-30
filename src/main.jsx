@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.3.1';
+const APP_VERSION='6.3.2';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -123,37 +123,50 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
     margin:0!important;
   }
 
-  /* 상·하 보관용 크기와 사방 여백을 완전히 동일하게 */
+  /* A4를 정확히 반으로 나누고, 위·아래 명세표에 동일한 사방 8mm 여백 적용 */
   .invoice-sheet.portrait-double{
+    position:relative!important;
     box-sizing:border-box!important;
     display:grid!important;
-    grid-template-rows:minmax(0,1fr) 8mm minmax(0,1fr)!important;
+    grid-template-rows:1fr 1fr!important;
     align-items:stretch!important;
     width:210mm!important;
+    height:297mm!important;
     min-height:297mm!important;
-    padding:10mm!important;
+    padding:0!important;
     margin:0 auto!important;
     gap:0!important;
     background:#fff!important;
+    overflow:hidden!important;
   }
   .invoice-sheet.portrait-double>.statement-copy{
+    box-sizing:border-box!important;
     min-width:0!important;
     min-height:0!important;
-    height:100%!important;
+    width:100%!important;
+    height:148.5mm!important;
     margin:0!important;
-    padding:0!important;
+    padding:8mm!important;
+    overflow:hidden!important;
   }
   .invoice-sheet.portrait-double>.cut-line{
-    display:flex!important;
-    align-items:center!important;
-    justify-content:center!important;
-    width:100%!important;
-    height:8mm!important;
+    position:absolute!important;
+    left:8mm!important;
+    right:8mm!important;
+    top:50%!important;
+    width:auto!important;
+    height:0!important;
     margin:0!important;
     padding:0!important;
+    border:0!important;
+    border-top:1px dashed #777!important;
     box-sizing:border-box!important;
-    text-align:center!important;
-    white-space:nowrap!important;
+    transform:translateY(-0.5px)!important;
+    font-size:0!important;
+    line-height:0!important;
+    color:transparent!important;
+    pointer-events:none!important;
+    z-index:3!important;
   }
 
   /* 거래처 거래현황을 우측 패널이 아닌 목록 아래 전체 너비로 표시 */
@@ -283,7 +296,7 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
     @page{size:A4 portrait;margin:0!important;}
     html,body{width:210mm!important;height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;}
     .invoice-overlay,.invoice-window{position:static!important;width:210mm!important;height:297mm!important;min-height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;}
-    .invoice-sheet.portrait-double{width:210mm!important;height:297mm!important;min-height:297mm!important;padding:10mm!important;margin:0!important;box-shadow:none!important;border:0!important;page-break-after:avoid!important;break-after:avoid-page!important;}
+    .invoice-sheet.portrait-double{width:210mm!important;height:297mm!important;min-height:297mm!important;padding:0!important;margin:0!important;box-shadow:none!important;border:0!important;page-break-after:avoid!important;break-after:avoid-page!important;}
     .invoice-delete,.invoice-delete.no-print{display:none!important;visibility:hidden!important;}
     .statement-copy{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }`;
@@ -2149,7 +2162,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
     </div></div>
     {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
-    <div className="invoice-sheet portrait-double">{renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}<div className="cut-line">- - - - - - - - - - - - - - 절 취 선 - - - - - - - - - - - - - -</div>{renderStatementCopy({copyLabel:'공급자 보관용'})}</div>
+    <div className="invoice-sheet portrait-double">{renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}<div className="cut-line" aria-hidden="true"></div>{renderStatementCopy({copyLabel:'공급자 보관용'})}</div>
   </div></div>;
 }
 
