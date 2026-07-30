@@ -1143,15 +1143,70 @@ function InvoiceModal({customer,logs,products,onClose}){
       <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3">{editable?<input value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/>:supplier.address}</td></tr>
       <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td>{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td><th>팩스</th><td>{editable?<input value={supplier.fax||''} onChange={e=>updateSupplier('fax',e.target.value)}/>:supplier.fax}</td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
-      <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th>{editable&&<th className="no-print">삭제</th>}</tr></thead><tbody>
+      <table className="invoice-items">
+        <colgroup>
+          <col style={{width:'6%'}}/>
+          <col style={{width:'6%'}}/>
+          <col style={{width:'34%'}}/>
+          <col style={{width:'10%'}}/>
+          <col style={{width:'14%'}}/>
+          <col style={{width:'16%'}}/>
+          <col style={{width:'14%'}}/>
+        </colgroup>
+        <thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
         <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
         <td>{editable?<input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/>:d[2]}</td>
-        <td>{editable?<input value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/>:item.name}</td>
-        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td><td>{editable?<input className="money-input" inputMode="numeric" value={fmt(item.unitPrice)} onChange={e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/>:fmt(item.unitPrice)}</td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>{editable&&<td className="no-print"><button className="invoice-delete" onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></td>}
+        <td style={{position:'relative'}}>
+          {editable
+            ? <>
+                <input
+                  value={item.name}
+                  onChange={e=>updateItem(index,'name',e.target.value)}
+                  style={{paddingRight:'28px'}}
+                />
+                <button
+                  type="button"
+                  className="invoice-delete no-print"
+                  onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}
+                  aria-label="품목 삭제"
+                  style={{
+                    position:'absolute',
+                    top:'50%',
+                    right:'3px',
+                    transform:'translateY(-50%)',
+                    width:'22px',
+                    height:'22px',
+                    padding:0,
+                    border:0,
+                    background:'transparent',
+                    lineHeight:1
+                  }}
+                >
+                  ×
+                </button>
+              </>
+            : item.name}
+        </td>
+        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td>
+        <td>{editable?<input className="money-input" inputMode="numeric" value={fmt(item.unitPrice)} onChange={e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/>:fmt(item.unitPrice)}</td>
+        <td className="money">{fmt(supply)}</td>
+        <td className="money">{fmt(tax)}</td>
       </tr>})}
-      {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td>{editable&&<td className="no-print"></td>}</tr>)}
-      </tbody><tfoot><tr><th className="total-label" colSpan="5">합계</th><td className="money total-money">{fmt(supplyTotal)}</td><td className="money total-money">{fmt(taxTotal)}</td>{editable&&<td className="no-print"></td>}</tr></tfoot></table>
+      {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=>
+        <tr className="invoice-empty-row" key={'empty-'+i}>
+          <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>
+      )}
+      </tbody>
+        <tfoot>
+          <tr>
+            <th className="total-label" colSpan="5">합계</th>
+            <td className="money total-money">{fmt(supplyTotal)}</td>
+            <td className="money total-money">{fmt(taxTotal)}</td>
+          </tr>
+        </tfoot>
+      </table>
       <div className="invoice-note"><b>비고</b>{editable?<textarea placeholder="비고 내용을 입력하세요" value={note} onChange={e=>setNote(e.target.value)}/>:<div>{note}</div>}</div>
       <div className="invoice-account"><b>입금계좌</b>{editable?<input placeholder="예: 국민은행 000000-00-000000 예금주 OTO" value={supplier.bankAccount||''} onChange={e=>updateSupplier('bankAccount',e.target.value)}/>:<div>{supplier.bankAccount||''}</div>}</div>
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
