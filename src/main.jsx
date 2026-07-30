@@ -970,6 +970,43 @@ function ReturnFromLogModal({log,customer,product,alreadyReturned,profile,user,o
   </Modal>;
 }
 
+
+function ReceivableModal({customer,mode,onClose,onSaved}){
+  const [amount,setAmount]=useState('');
+  const [date,setDate]=useState(new Date().toLocaleDateString('en-CA'));
+  const [method,setMethod]=useState(mode==='payment'?'계좌이체':'외상');
+  const [memo,setMemo]=useState('');
+
+  function save(){
+    const value=Number(String(amount).replace(/,/g,''));
+    if(!Number.isFinite(value)||value<=0){alert('금액을 올바르게 입력해주세요.');return}
+    onSaved({
+      id:`rcv_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+      customerId:String(customer.id),
+      customerName:customer.name,
+      type:mode,
+      amount:value,
+      date,
+      method,
+      memo:memo.trim(),
+      createdAt:new Date().toISOString()
+    });
+  }
+
+  return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal-card" style={{maxWidth:440}}>
+      <div className="modal-head"><div><small>{customer.name}</small><h3>{mode==='charge'?'미수금 등록':'입금 처리'}</h3></div><button onClick={onClose}>×</button></div>
+      <div className="form-grid" style={{gridTemplateColumns:'1fr 1fr'}}>
+        <Input label="처리일" type="date" value={date} set={setDate}/>
+        <Select label={mode==='charge'?'구분':'입금수단'} value={method} set={setMethod} options={mode==='charge'?['외상','추가 미수','기타']:['계좌이체','현금','카드','기타']}/>
+        <div style={{gridColumn:'1 / -1'}}><Input label={mode==='charge'?'미수금액':'입금금액'} type="number" value={amount} set={setAmount}/></div>
+        <div style={{gridColumn:'1 / -1'}}><Input label="메모" value={memo} set={setMemo} placeholder={mode==='charge'?'예: 7월 30일 출고대금':'예: 국민은행 입금'}/></div>
+      </div>
+      <div className="modal-actions"><button onClick={onClose}>취소</button><button className="primary" onClick={save}>{mode==='charge'?'미수금 등록':'입금 처리'}</button></div>
+    </div>
+  </div>;
+}
+
 function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,onAdd,onEdit,onDelete}){
   const [query,setQuery]=useState('');
   const [selectedId,setSelectedId]=useState('');
@@ -978,6 +1015,10 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   const [sort,setSort]=useState({key:'name',direction:'asc'});
   const [invoiceLogs,setInvoiceLogs]=useState(null);
   const [returnLog,setReturnLog]=useState(null);
+  const [receivableModal,setReceivableModal]=useState(null);
+  const [receivableEntries,setReceivableEntries]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem('oto_receivable_entries')||'[]')}catch{return []}
+  });
 
   const isReturnLog=log=>log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
   const returnedForLog=log=>logs
@@ -988,6 +1029,33 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
     return products.find(product=>String(product.id)===String(log.product_id))
       ||products.find(product=>String(log.product_name||'').startsWith(product.name));
   }
+
+  function saveReceivableEntry(entry){
+    setReceivableEntries(current=>{
+      const next=[...current,entry];
+      localStorage.setItem('oto_receivable_entries',JSON.stringify(next));
+      return next;
+    });
+    setReceivableModal(null);
+  }
+
+  function deleteReceivableEntry(entry){
+    if(!window.confirm('이 미수금 내역을 삭제할까요?'))return;
+    setReceivableEntries(current=>{
+      const next=current.filter(item=>item.id!==entry.id);
+      localStorage.setItem('oto_receivable_entries',JSON.stringify(next));
+      return next;
+    });
+  }
+
+  const receivableBalanceByCustomer=useMemo(()=>{
+    const result={};
+    receivableEntries.forEach(entry=>{
+      const key=String(entry.customerId||'');
+      result[key]=(result[key]||0)+(entry.type==='payment'?-1:1)*Number(entry.amount||0);
+    });
+    return result;
+  },[receivableEntries]);
 
   const customerStats=useMemo(()=>{
     const stats={};
@@ -1022,6 +1090,13 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   function sortMark(key){if(sort.key!==key)return '↕';return sort.direction==='asc'?'▲':'▼'}
 
   const selected=customers.find(c=>c.id===selectedId)||null;
+  const selectedReceivableEntries=useMemo(()=>{
+    if(!selected)return [];
+    return receivableEntries
+      .filter(entry=>String(entry.customerId)===String(selected.id))
+      .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  },[receivableEntries,selected]);
+  const selectedReceivableBalance=selectedReceivableEntries.reduce((sum,entry)=>sum+(entry.type==='payment'?-1:1)*Number(entry.amount||0),0);
 
   const customerLogs=useMemo(()=>{
     if(!selected)return [];
@@ -1064,22 +1139,24 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
     <div className="customer-layout">
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
-          <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>관리</th>
-        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}><td><b>{c.name}</b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>거래내역</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>})}</tbody></table></div>
-        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}><div className="customer-card-head"><b>{c.name}</b><span>누적 출고 {stats.totalOut.toLocaleString()}개</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>거래내역</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>})}</div>
+          <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}><td><b>{c.name}</b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>거래내역</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}><div className="customer-card-head"><b>{c.name}</b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>거래내역</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
       <aside className="customer-history">
         {!selected&&<div className="customer-history-empty"><Users size={34}/><b>거래처를 선택하세요</b><span>출고·반품 내역과 건별 거래명세표를 확인할 수 있습니다.</span></div>}
-        {selected&&<><div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div>
+        {selected&&<><div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><div style={{display:'flex',alignItems:'center',gap:6}}><button className="ghost" onClick={()=>setReceivableModal('charge')}>미수금 등록</button><button className="primary" onClick={()=>setReceivableModal('payment')}>입금</button><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div></div>
           <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div></div>
-          <div className="customer-history-summary"><div><small>거래 건수</small><strong>{transactionGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-1:1)*Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
+          <div className="customer-history-summary"><div><small>거래 건수</small><strong>{transactionGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-1:1)*Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div><div><small>미수잔액</small><strong style={{color:selectedReceivableBalance>0?'#d92d20':'inherit'}}>{Math.max(0,selectedReceivableBalance).toLocaleString()}원</strong></div></div>
+          <div style={{margin:'14px 0',border:'1px solid #e5e7eb',borderRadius:12,overflow:'hidden'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'#f8fafc'}}><b>미수금·입금 내역</b><strong>잔액 {Math.max(0,selectedReceivableBalance).toLocaleString()}원</strong></div>{selectedReceivableEntries.length?<div>{selectedReceivableEntries.map(entry=><div key={entry.id} style={{display:'grid',gridTemplateColumns:'92px 70px 1fr auto auto',gap:8,alignItems:'center',padding:'10px 14px',borderTop:'1px solid #eef0f3',fontSize:13}}><span>{entry.date}</span><b style={{color:entry.type==='payment'?'#1570ef':'#d92d20'}}>{entry.type==='payment'?'입금':'미수'}</b><span>{entry.method}{entry.memo?` · ${entry.memo}`:''}</span><strong>{entry.type==='payment'?'-':'+'}{Number(entry.amount||0).toLocaleString()}원</strong><button className="ghost" onClick={()=>deleteReceivableEntry(entry)}>삭제</button></div>)}</div>:<div style={{padding:16,color:'#667085',textAlign:'center'}}>등록된 미수금 내역이 없습니다.</div>}</div>
           <div className="daily-shipments">{transactionGroups.map(group=><article key={group.key} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.orderNumbers.length?`주문번호 ${group.orderNumbers.join(', ')}`:'주문번호 없음'}</small></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=>{const returnedQty=group.returned?0:returnedForLog(log);const remaining=Math.max(0,Number(log.quantity||0)-returnedQty);return <div key={log.id} style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto auto',alignItems:'center',gap:8}}><span>{group.returned?'[반품] ':''}{log.product_name}{!group.returned&&returnedQty>0?<small style={{display:'block',color:'#d92d20',marginTop:2}}>반품 {returnedQty.toLocaleString()}개 · 잔여 {remaining.toLocaleString()}개</small>:null}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b>{!group.returned&&<button type="button" className="ghost" disabled={remaining<=0} onClick={()=>setReturnLog(log)} style={{padding:'6px 10px',fontSize:12,whiteSpace:'nowrap'}}>{remaining>0?'반품':'반품완료'}</button>}</div>})}</div></article>)}{!transactionGroups.length&&<Empty text="선택한 기간의 거래내역이 없습니다."/>}</div>
         </>}
       </aside>
     </div>
     {returnLog&&selected&&<ReturnFromLogModal log={returnLog} customer={selected} product={matchedProductForLog(returnLog)} alreadyReturned={returnedForLog(returnLog)} profile={profile} user={user} onClose={()=>setReturnLog(null)} onSaved={onReturnSaved}/>}
     {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>} 
+    {receivableModal&&selected&&<ReceivableModal customer={selected} mode={receivableModal} onClose={()=>setReceivableModal(null)} onSaved={saveReceivableEntry}/>}
   </section>;
 }
 
