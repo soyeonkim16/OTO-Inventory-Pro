@@ -1,10 +1,11 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
+import {createPortal} from 'react-dom';
 import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.2.1';
+const APP_VERSION='6.2.3';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -1372,9 +1373,9 @@ function ReceivableModal({customer,mode,user,onClose,onSaved,initialAmount='',in
     }catch(e){setError(normalizeError(e))}finally{setSaving(false)}
   }
 
-  return <div className="modal-backdrop" style={{zIndex:99999}} onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
-    <div className="modal-card" style={{maxWidth:440}}>
-      <div className="modal-head"><div><small>{customer.name}</small><h3>{mode==='charge'?'미수금 등록':'입금 처리'}</h3></div><button onClick={onClose}>×</button></div>
+  const modal=<div className="modal-backdrop" style={{zIndex:2147483647,position:'fixed',inset:0}} onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal-card" style={{maxWidth:440,position:'relative',zIndex:2147483647}} onMouseDown={e=>e.stopPropagation()}>
+      <div className="modal-head"><div><small>{customer.name}</small><h3>{mode==='charge'?'미수금 등록':'입금 처리'}</h3></div><button type="button" onClick={onClose}>×</button></div>
       <div className="form-grid" style={{gridTemplateColumns:'1fr 1fr'}}>
         <Field label="처리일" type="date" value={date} set={setDate}/>
         <Select label={mode==='charge'?'구분':'입금수단'} value={method} set={setMethod} options={mode==='charge'?['외상','추가 미수','기타']:['계좌이체','현금','카드','기타']}/>
@@ -1382,9 +1383,10 @@ function ReceivableModal({customer,mode,user,onClose,onSaved,initialAmount='',in
         <div style={{gridColumn:'1 / -1'}}><Field label="메모" value={memo} set={setMemo}/></div>
         {error&&<div className="error" style={{gridColumn:'1 / -1'}}>{error}</div>}
       </div>
-      <div className="modal-actions"><button onClick={onClose} disabled={saving}>취소</button><button className="primary" onClick={save} disabled={saving}>{saving?'저장 중…':mode==='charge'?'미수금 등록':'입금 처리'}</button></div>
+      <div className="modal-actions"><button type="button" onClick={onClose} disabled={saving}>취소</button><button type="button" className="primary" onClick={save} disabled={saving}>{saving?'저장 중…':mode==='charge'?'미수금 등록':'입금 처리'}</button></div>
     </div>
   </div>;
+  return typeof document!=='undefined'?createPortal(modal,document.body):modal;
 }
 
 function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,onAdd,onEdit,onDelete}){
@@ -1618,7 +1620,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   }
 
   const customerHistoryPanel=selected?<div className="customer-history customer-history-inline">
-    <div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><div style={{display:'flex',alignItems:'center',gap:6}}><button className="ghost" onClick={()=>setReceivableModal({mode:'charge'})}>미수금 등록</button><button className="primary" onClick={()=>setReceivableModal({mode:'payment'})}>입금처리</button><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div></div>
+    <div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><div style={{display:'flex',alignItems:'center',gap:6}}><button className="ghost" onClick={()=>setReceivableModal({mode:'charge',customer:selected})}>미수금 등록</button><button className="primary" onClick={()=>setReceivableModal({mode:'payment',customer:selected})}>입금처리</button><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div></div>
           <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div></div>
           <div className="customer-history-summary"><div><small>거래 건수</small><strong>{transactionGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-1:1)*Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div><div><small>미수잔액</small><strong style={{color:selectedReceivableBalance>0?'#d92d20':'inherit'}}>{Math.max(0,selectedReceivableBalance).toLocaleString()}원</strong></div></div>
           <div className="receivable-history-block" style={{margin:'14px 0',border:'1px solid #e5e7eb',borderRadius:12,overflow:'hidden'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'#f8fafc'}}><b>미수금·입금 내역</b><strong>잔액 {Math.max(0,selectedReceivableBalance).toLocaleString()}원</strong></div>{selectedReceivableEntries.length?<div>{selectedReceivableEntries.map(entry=><div key={entry.id} style={{display:'grid',gridTemplateColumns:'92px 70px 1fr auto auto',gap:8,alignItems:'center',padding:'10px 14px',borderTop:'1px solid #eef0f3',fontSize:13}}><span>{entry.date}</span><b style={{color:entry.type==='payment'?'#1570ef':'#d92d20'}}>{entry.type==='payment'?'입금':'미수'}</b><span>{entry.method}{entry.memo?` · ${entry.memo}`:''}</span><strong>{entry.type==='payment'?'-':'+'}{Number(entry.amount||0).toLocaleString()}원</strong><button className="ghost" onClick={()=>deleteReceivableEntry(entry)}>삭제</button></div>)}</div>:<div style={{padding:16,color:'#667085',textAlign:'center'}}>등록된 미수금 내역이 없습니다.</div>}</div>
@@ -1626,23 +1628,33 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
             {selectedPaymentGroups.length>0&&<div className="selected-payment-bar"><div><b>선택한 거래 {selectedPaymentGroups.length}건</b><div><strong>{selectedPaymentAmount.toLocaleString()}원</strong> 입금 처리 예정</div></div><button
               type="button"
               className="primary selected-payment-button"
-              onPointerDown={e=>e.stopPropagation()}
+              onMouseDown={e=>{
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={e=>{
                 e.preventDefault();
                 e.stopPropagation();
-                if(!selectedPaymentGroups.length){
+                const currentGroups=transactionGroups.filter(group=>!group.returned&&selectedPaymentKeys.includes(group.key));
+                const currentAmount=currentGroups.reduce((sum,group)=>sum+transactionGroupAmount(group),0);
+                if(!currentGroups.length){
                   window.alert('입금 처리할 출고 거래를 먼저 선택해주세요.');
                   return;
                 }
-                if(!Number.isFinite(selectedPaymentAmount)||selectedPaymentAmount<=0){
+                if(!Number.isFinite(currentAmount)||currentAmount<=0){
                   window.alert('선택한 거래의 금액을 계산할 수 없습니다. 상품 단가를 확인해주세요.');
                   return;
                 }
+                const currentMemo=currentGroups.map(group=>{
+                  const orderText=group.orderNumbers.length?`주문번호 ${group.orderNumbers.join(', ')}`:'주문번호 없음';
+                  return `${group.date} ${orderText}`;
+                }).join(' / ');
                 setReceivableModal({
                   mode:'payment',
-                  amount:String(selectedPaymentAmount),
-                  memo:`선택 거래 입금 · ${selectedPaymentMemo}`,
-                  source:'selected_transactions'
+                  amount:String(currentAmount),
+                  memo:`선택 거래 입금 · ${currentMemo}`,
+                  source:'selected_transactions',
+                  customer:selected
                 });
               }}
             >선택 입금처리</button></div>}
@@ -1658,15 +1670,15 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
           <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
-        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span>{c.name}</b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment'})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
-        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span>{c.name}</b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment'})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span>{c.name}</b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span>{c.name}</b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
 
     </div>
     {returnLog&&selected&&<ReturnFromLogModal log={returnLog} customer={selected} product={matchedProductForLog(returnLog)} alreadyReturned={returnedForLog(returnLog)} profile={profile} user={user} onClose={()=>setReturnLog(null)} onSaved={onReturnSaved}/>}
     {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>} 
-    {receivableModal&&selected&&<ReceivableModal customer={selected} mode={receivableModal.mode} initialAmount={receivableModal.amount||''} initialMemo={receivableModal.memo||''} source={receivableModal.source||'manual'} user={user} onClose={()=>setReceivableModal(null)} onSaved={saveReceivableEntry}/>}
+    {receivableModal&&(receivableModal.customer||selected)&&<ReceivableModal customer={receivableModal.customer||selected} mode={receivableModal.mode} initialAmount={receivableModal.amount||''} initialMemo={receivableModal.memo||''} source={receivableModal.source||'manual'} user={user} onClose={()=>setReceivableModal(null)} onSaved={saveReceivableEntry}/>}
   </section>;
 }
 
