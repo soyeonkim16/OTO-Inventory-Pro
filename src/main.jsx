@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='4.0.0';
+const APP_VERSION='5.1.0';
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
 const SUPABASE_KEY='sb_publishable_54jZNgv3W_Dj49xZFmt35g_W-9m9oVe';
 const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
@@ -20,10 +20,6 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
 const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,wholesale_price:0,retail_price:0,memo:''};
 const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',price_type:'wholesale',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
-
-function isReturnLog(log){
-  return log?.movement_type==='in' && String(log?.memo||'').startsWith('[반품]');
-}
 
 
 function makeInternalSku(form){
@@ -329,6 +325,7 @@ function App(){
           ['inventory',Box,'재고'],
           ['logs',Truck,'입출고'],
           ['customers',Users,'거래처'],
+          ['sales',BarChart3,'매출'],
           ...(isAdmin?[['employees',UserCog,'직원관리']]:[])
         ].map(([id,Icon,title])=>
           <button className={tab===id?'active':''} onClick={()=>setTab(id)} key={id}><Icon size={18}/>{title}</button>
@@ -367,6 +364,7 @@ function App(){
 
       {tab==='logs'&&<Logs logs={logs} products={products} isAdmin={isAdmin} onMove={setMoveModal} onDelete={deleteStockLog}/>}
       {tab==='customers'&&<Customers customers={customers} products={products} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
+      {tab==='sales'&&<SalesDashboard logs={logs} products={products} customers={customers}/>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
 
       <footer><ShieldCheck size={14}/> 자동 로그인 유지 · 실시간 동기화 · v{APP_VERSION}</footer>
@@ -380,7 +378,7 @@ function App(){
       user={session.user}
       onClose={()=>setMoveModal(null)}
       onSaved={(movement)=>{
-        const delta=movement.type==='in'?Number(movement.quantity):-Number(movement.quantity);
+        const delta=(movement.type==='in'||movement.type==='return')?Number(movement.quantity):-Number(movement.quantity);
         setProducts(current=>current.map(item=>
           item.id===movement.product_id
             ? {...item,quantity:Number(item.quantity||0)+delta}
@@ -390,7 +388,7 @@ function App(){
           id:`temp-${Date.now()}`,
           product_id:movement.product_id,
           product_name:movement.product_name,
-          movement_type:movement.type,
+          movement_type:movement.type==='return'?'in':movement.type,
           quantity:Number(movement.quantity),
           staff_name:profile.name,
           customer_id:movement.customer_id||null,
@@ -560,17 +558,19 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
       setError('현재 재고보다 많이 출고할 수 없습니다.');
       return;
     }
+    if((form.type==='out'||form.type==='return')&&!form.customer_id){
+      setError(form.type==='return'?'반품 거래처를 선택하세요.':'출고 거래처를 선택하세요.');
+      return;
+    }
     setSaving(true);setError('');
     try{
       const isReturn=form.type==='return';
-      const movementType=isReturn?'in':form.type;
-      const savedMemo=isReturn
-        ? `[반품]${form.memo?.trim()?` ${form.memo.trim()}`:''}`
-        : form.memo||null;
-
+      const storedMemo=isReturn
+        ? `[반품]${form.order?` 원주문번호: ${form.order}`:''}${form.memo?` / 사유: ${form.memo}`:''}`
+        : (form.memo||null);
       const {error}=await supabase.rpc('process_stock_movement',{
         p_product_id:product.id,
-        p_type:movementType,
+        p_type:isReturn?'in':form.type,
         p_quantity:Number(form.qty),
         p_user_id:user.id,
         p_staff_name:profile.name,
@@ -584,14 +584,14 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
         p_courier:form.courier||null,
         p_tracking_number:form.tracking||null,
         p_order_number:form.order||null,
-        p_memo:savedMemo
+        p_memo:storedMemo
       });
       if(error)throw error;
       const selectedCustomer=customers.find(c=>c.id===form.customer_id);
       onSaved({
         product_id:product.id,
         product_name:product.name,
-        type:movementType,
+        type:form.type,
         quantity:Number(form.qty),
         customer_id:form.customer_id||null,
         customer_name:selectedCustomer?.name||null,
@@ -601,20 +601,22 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
         courier:form.courier||null,
         tracking_number:form.tracking||null,
         order_number:form.order||null,
-        memo:savedMemo
+        memo:storedMemo
       });
     }catch(e){
       const msg=normalizeError(e);
-      setError(msg.includes('process_stock_movement')?'출고 처리 함수가 없습니다. Supabase SQL 설정을 확인하세요.':msg);
+      setError(msg.includes('process_stock_movement')?'입출고 처리 함수가 없습니다. Supabase SQL 설정을 확인하세요.':msg);
     }finally{setSaving(false)}
   }
+
+  const needsCustomer=form.type==='out'||form.type==='return';
 
   return <Modal title={`${product.name} 입출고`} onClose={onClose}>
     <form onSubmit={save} className="form-grid">
       <Select label="구분" value={form.type} set={v=>setForm({...form,type:v})} options={['in','out','return']} labels={{in:'입고',out:'출고',return:'반품'}}/>
-      <Field label="수량" type="number" value={form.qty} set={v=>setForm({...form,qty:v})}/>
-      {(form.type==='out'||form.type==='return')&&<>
-        <Select label="거래처" value={form.customer_id} set={pick} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/>
+      <Field label={form.type==='return'?'반품 수량':'수량'} type="number" value={form.qty} set={v=>setForm({...form,qty:v})}/>
+      {needsCustomer&&<>
+        <Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pick} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/>
         <Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/>
         <Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/>
         <div className="full address">
@@ -623,14 +625,15 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
           <button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button>
         </div>
         <Field label="상세주소" value={form.address_detail} set={v=>setForm({...form,address_detail:v})} full/>
-        <Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
-        <Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/>
-        <Field label="주문번호" value={form.order} set={v=>setForm({...form,order:v})}/>
+        {form.type==='out'&&<>
+          <Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
+          <Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/>
+        </>}
+        <Field label={form.type==='return'?'원주문번호':'주문번호'} value={form.order} set={v=>setForm({...form,order:v})}/>
       </>}
-      {form.type==='return'&&<div className="full return-help">반품 수량만큼 재고가 자동으로 다시 증가하며, 거래처 내역에는 반품으로 표시됩니다.</div>}
-      <Field label="메모" value={form.memo} set={v=>setForm({...form,memo:v})} full/>
+      <Field label={form.type==='return'?'반품 사유':'메모'} value={form.memo} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
-      <button className="primary full" disabled={saving}>{saving?'처리 중…':'처리'}</button>
+      <button className="primary full" disabled={saving}>{saving?'처리 중…':form.type==='return'?'반품 처리':'처리'}</button>
     </form>
   </Modal>;
 }
@@ -675,6 +678,130 @@ function postcode(done){
   new window.daum.Postcode({oncomplete:done}).open({popupTitle:'OTO 주소검색'});
 }
 
+function SalesDashboard({logs,products,customers}){
+  const currentMonth=new Date().toLocaleDateString('en-CA').slice(0,7);
+  const [month,setMonth]=useState(currentMonth);
+
+  const report=useMemo(()=>{
+    const productMap=new Map(products.map(product=>[String(product.id),product]));
+    const customerMap=new Map(customers.map(customer=>[String(customer.id),customer]));
+    const rows=[];
+
+    logs.forEach(log=>{
+      const date=new Date(log.created_at);
+      if(Number.isNaN(date.getTime()))return;
+      const logMonth=date.toLocaleDateString('en-CA').slice(0,7);
+      if(logMonth!==month)return;
+
+      const isReturn=log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
+      const isSale=log.movement_type==='out';
+      if(!isSale&&!isReturn)return;
+
+      const product=productMap.get(String(log.product_id||''))||products.find(item=>String(log.product_name||'').startsWith(item.name));
+      const customer=customerMap.get(String(log.customer_id||''))||customers.find(item=>item.name===log.customer_name);
+      const priceType=customer?.price_type||'wholesale';
+      const fallbackPrice=Number(priceType==='retail'?product?.retail_price:product?.wholesale_price)||0;
+      const unitPrice=Number(log.unit_price||fallbackPrice)||0;
+      const quantity=Number(log.quantity||0);
+      const amount=quantity*unitPrice;
+
+      rows.push({
+        id:log.id,
+        date:date.toLocaleDateString('en-CA'),
+        customer:customer?.name||log.customer_name||'거래처 미지정',
+        product:log.product_name||product?.name||'',
+        quantity,
+        unitPrice,
+        amount,
+        isReturn
+      });
+    });
+
+    const gross=rows.filter(row=>!row.isReturn).reduce((sum,row)=>sum+row.amount,0);
+    const returns=rows.filter(row=>row.isReturn).reduce((sum,row)=>sum+row.amount,0);
+    const byCustomer={};
+    rows.forEach(row=>{
+      if(!byCustomer[row.customer])byCustomer[row.customer]={customer:row.customer,gross:0,returns:0,net:0};
+      if(row.isReturn)byCustomer[row.customer].returns+=row.amount;
+      else byCustomer[row.customer].gross+=row.amount;
+      byCustomer[row.customer].net=byCustomer[row.customer].gross-byCustomer[row.customer].returns;
+    });
+
+    return {
+      rows:rows.sort((a,b)=>b.date.localeCompare(a.date)),
+      gross,
+      returns,
+      net:gross-returns,
+      byCustomer:Object.values(byCustomer).sort((a,b)=>b.net-a.net)
+    };
+  },[logs,products,customers,month]);
+
+  function download(){
+    const data=[
+      ['날짜','구분','거래처','품목','수량','단가','금액'],
+      ...report.rows.map(row=>[row.date,row.isReturn?'반품':'출고',row.customer,row.product,row.isReturn?-row.quantity:row.quantity,row.unitPrice,row.isReturn?-row.amount:row.amount])
+    ];
+    csvDownload(`${month}_월별매출.csv`,data);
+  }
+
+  return <section className="panel">
+    <div className="toolbar">
+      <div>
+        <h3 style={{margin:'0 0 5px'}}>월별 매출 현황</h3>
+        <p style={{margin:0,color:'#667085',fontSize:13}}>출고매출에서 반품금액을 차감한 순매출입니다.</p>
+      </div>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+        <input type="month" value={month} onChange={event=>setMonth(event.target.value)} style={{minHeight:42,padding:'0 12px',border:'1px solid #d0d5dd',borderRadius:10}}/>
+        <button className="ghost" onClick={download}><Download size={17}/>엑셀 저장</button>
+      </div>
+    </div>
+
+    <div className="stats" style={{marginTop:18}}>
+      <Stat label="출고 매출" value={`${report.gross.toLocaleString()}원`}/>
+      <Stat label="반품 금액" value={`${report.returns.toLocaleString()}원`} danger={report.returns>0}/>
+      <Stat label="순매출" value={`${report.net.toLocaleString()}원`}/>
+      <Stat label="거래 건수" value={`${report.rows.length}건`}/>
+    </div>
+
+    <div className="table-wrap" style={{marginTop:18}}>
+      <table>
+        <thead><tr><th>거래처</th><th>출고매출</th><th>반품액</th><th>순매출</th></tr></thead>
+        <tbody>
+          {report.byCustomer.map(row=><tr key={row.customer}>
+            <td data-label="거래처"><b>{row.customer}</b></td>
+            <td data-label="출고매출">{row.gross.toLocaleString()}원</td>
+            <td data-label="반품액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td>
+            <td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td>
+          </tr>)}
+          {!report.byCustomer.length&&<tr><td colSpan="4"><Empty text="선택한 달의 매출내역이 없습니다."/></td></tr>}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="table-wrap" style={{marginTop:22}}>
+      <table>
+        <thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>금액</th></tr></thead>
+        <tbody>
+          {report.rows.map(row=><tr key={row.id}>
+            <td data-label="날짜">{row.date}</td>
+            <td data-label="구분"><b style={{color:row.isReturn?'#d92d20':'inherit'}}>{row.isReturn?'반품':'출고'}</b></td>
+            <td data-label="거래처">{row.customer}</td>
+            <td data-label="품목">{row.product}</td>
+            <td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td>
+            <td data-label="단가">{row.unitPrice.toLocaleString()}원</td>
+            <td data-label="금액"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td>
+          </tr>)}
+          {!report.rows.length&&<tr><td colSpan="7"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}
+        </tbody>
+      </table>
+    </div>
+
+    <p style={{margin:'14px 2px 0',fontSize:12,color:'#667085'}}>
+      과거 기록에 저장 단가가 없는 경우 현재 상품 단가와 거래처의 도매·소매 설정을 기준으로 계산됩니다.
+    </p>
+  </section>;
+}
+
 function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
   const [query,setQuery]=useState('');
   const [selectedId,setSelectedId]=useState('');
@@ -683,17 +810,17 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
   const [sort,setSort]=useState({key:'name',direction:'asc'});
   const [invoiceLogs,setInvoiceLogs]=useState(null);
 
+  const isReturnLog=log=>log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
+
   const customerStats=useMemo(()=>{
     const stats={};
     customers.forEach(c=>{stats[c.id]={totalOut:0,lastOut:''}});
     logs.forEach(log=>{
-      const isOut=log.movement_type==='out';
-      const isReturn=isReturnLog(log);
-      if(!isOut&&!isReturn)return;
+      if(log.movement_type!=='out'&&!isReturnLog(log))return;
       const customer=customers.find(c=>log.customer_id===c.id||(!log.customer_id&&log.customer_name===c.name));
       if(!customer)return;
       if(!stats[customer.id])stats[customer.id]={totalOut:0,lastOut:''};
-      stats[customer.id].totalOut+=isReturn?-Number(log.quantity||0):Number(log.quantity||0);
+      stats[customer.id].totalOut+=(isReturnLog(log)?-1:1)*Number(log.quantity||0);
       const date=log.created_at||'';
       if(date>stats[customer.id].lastOut)stats[customer.id].lastOut=date;
     });
@@ -701,40 +828,21 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
   },[customers,logs]);
 
   const rows=useMemo(()=>{
-    const filtered=customers.filter(c=>
-      [c.name,c.recipient_name,c.phone,c.address,c.address_detail]
-        .join(' ')
-        .toLowerCase()
-        .includes(query.toLowerCase())
-    );
+    const filtered=customers.filter(c=>[c.name,c.recipient_name,c.phone,c.address,c.address_detail].join(' ').toLowerCase().includes(query.toLowerCase()));
     return [...filtered].sort((a,b)=>{
       const aStats=customerStats[a.id]||{totalOut:0,lastOut:''};
       const bStats=customerStats[b.id]||{totalOut:0,lastOut:''};
-      let av='';
-      let bv='';
-      if(sort.key==='totalOut'){
-        av=aStats.totalOut; bv=bStats.totalOut;
-      }else if(sort.key==='lastOut'){
-        av=aStats.lastOut||''; bv=bStats.lastOut||'';
-      }else{
-        av=(a[sort.key]||'').toString(); bv=(b[sort.key]||'').toString();
-      }
-      const result=typeof av==='number' ? av-bv : av.localeCompare(bv,'ko',{numeric:true,sensitivity:'base'});
+      let av='',bv='';
+      if(sort.key==='totalOut'){av=aStats.totalOut;bv=bStats.totalOut}
+      else if(sort.key==='lastOut'){av=aStats.lastOut||'';bv=bStats.lastOut||''}
+      else{av=(a[sort.key]||'').toString();bv=(b[sort.key]||'').toString()}
+      const result=typeof av==='number'?av-bv:av.localeCompare(bv,'ko',{numeric:true,sensitivity:'base'});
       return sort.direction==='asc'?result:-result;
     });
   },[customers,query,sort,customerStats]);
 
-  function changeSort(key){
-    setSort(current=>current.key===key
-      ? {key,direction:current.direction==='asc'?'desc':'asc'}
-      : {key,direction:'asc'}
-    );
-  }
-
-  function sortMark(key){
-    if(sort.key!==key)return '↕';
-    return sort.direction==='asc'?'▲':'▼';
-  }
+  function changeSort(key){setSort(current=>current.key===key?{key,direction:current.direction==='asc'?'desc':'asc'}:{key,direction:'asc'})}
+  function sortMark(key){if(sort.key!==key)return '↕';return sort.direction==='asc'?'▲':'▼'}
 
   const selected=customers.find(c=>c.id===selectedId)||null;
 
@@ -742,174 +850,59 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
     if(!selected)return [];
     return logs.filter(log=>{
       if(log.movement_type!=='out'&&!isReturnLog(log))return false;
-      const matchesCustomer=
-        log.customer_id===selected.id ||
-        (!log.customer_id && log.customer_name===selected.name);
+      const matchesCustomer=log.customer_id===selected.id||(!log.customer_id&&log.customer_name===selected.name);
       if(!matchesCustomer)return false;
-
       const date=new Date(log.created_at).toLocaleDateString('en-CA');
       return (!from||date>=from)&&(!to||date<=to);
     });
   },[logs,selected,from,to]);
 
-  const dailyGroups=useMemo(()=>{
+  const transactionGroups=useMemo(()=>{
     const groups={};
     customerLogs.forEach(log=>{
       const date=new Date(log.created_at).toLocaleDateString('en-CA');
-      if(!groups[date])groups[date]={total:0,items:{}};
-      groups[date].total+=Number(log.quantity||0);
-      groups[date].items[log.product_name]=(groups[date].items[log.product_name]||0)+Number(log.quantity||0);
-    });
-    return Object.entries(groups)
-      .sort((a,b)=>b[0].localeCompare(a[0]))
-      .map(([date,data])=>({
-        date,
-        total:data.total,
-        items:Object.entries(data.items).sort((a,b)=>b[1]-a[1])
-      }));
-  },[customerLogs]);
-
-  const orderGroups=useMemo(()=>{
-    const groups={};
-    customerLogs.forEach(log=>{
-      const date=new Date(log.created_at).toLocaleDateString('en-CA');
-      const returnType=isReturnLog(log);
-      const key=log.order_number
-        ? `${returnType?'return':'order'}|${log.order_number}`
-        : `${returnType?'return':'log'}|${log.id}`;
-      if(!groups[key]){
-        groups[key]={
-          key,
-          orderNumber:log.order_number||'',
-          date,
-          createdAt:log.created_at,
-          isReturn:returnType,
-          logs:[]
-        };
-      }
+      const returned=isReturnLog(log);
+      const order=String(log.order_number||'').trim();
+      const key=order?`${returned?'return':'out'}|${order}`:`${returned?'return':'out'}|${log.id}`;
+      if(!groups[key])groups[key]={key,date,order,returned,logs:[],total:0};
       groups[key].logs.push(log);
-      if(log.created_at<groups[key].createdAt)groups[key].createdAt=log.created_at;
+      groups[key].total+=Number(log.quantity||0);
+      if(date<groups[key].date)groups[key].date=date;
     });
-    return Object.values(groups).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+    return Object.values(groups).sort((a,b)=>b.date.localeCompare(a.date));
   },[customerLogs]);
 
   function exportCustomerCsv(){
     if(!selected)return;
-    const data=[
-      ['출고일','거래처','품목','수량'],
-      ...dailyGroups.flatMap(day=>
-        day.items.map(([item,qty])=>[
-          day.date,
-          selected.name,
-          item,
-          qty
-        ])
-      )
-    ];
-    downloadCsv(data,`${selected.name}_일자별출고_${new Date().toISOString().slice(0,10)}.csv`);
+    const data=[['처리일','구분','주문번호','거래처','품목','수량'],...transactionGroups.flatMap(group=>group.logs.map(log=>[new Date(log.created_at).toLocaleDateString('en-CA'),group.returned?'반품':'출고',log.order_number||'',selected.name,log.product_name,group.returned?-Number(log.quantity||0):Number(log.quantity||0)]))];
+    downloadCsv(data,`${selected.name}_거래내역_${new Date().toISOString().slice(0,10)}.csv`);
   }
 
   return <section className="panel customer-panel">
-    <div className="toolbar">
-      <div className="search">
-        <Search size={18}/>
-        <input
-          value={query}
-          onChange={e=>setQuery(e.target.value)}
-          placeholder="거래처명, 받는 사람, 연락처 검색"
-        />
-      </div>
-      {isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>거래처 등록</button>}
-    </div>
-
+    <div className="toolbar"><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="거래처명, 받는 사람, 연락처 검색"/></div>{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>거래처 등록</button>}</div>
     <div className="customer-layout">
       <div className="customer-list-area">
-        <div className="customer-table-wrap">
-          <table className="customer-table">
-            <thead>
-              <tr>
-                <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th>
-                <th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th>
-                <th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th>
-                <th>주소</th><th>단가 구분</th>
-                <th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th>
-                <th><button onClick={()=>changeSort('lastOut')}>최근 출고일 <span>{sortMark('lastOut')}</span></button></th>
-                <th>관리</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(c=>{
-                const stats=customerStats[c.id]||{totalOut:0,lastOut:''};
-                return <tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}>
-                  <td><b>{c.name}</b></td>
-                  <td>{c.recipient_name||'-'}</td>
-                  <td className="customer-phone">{c.phone||'-'}</td>
-                  <td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td>
-                  <td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td>
-                  <td><strong>{stats.totalOut.toLocaleString()}개</strong></td>
-                  <td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td>
-                  <td>
-                    <div className="customer-row-actions">
-                      <button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>출고내역</button>
-                      {isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}
-                      {isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}
-                    </div>
-                  </td>
-                </tr>;
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="customer-mobile-list">
-          {rows.map(c=>{
-            const stats=customerStats[c.id]||{totalOut:0,lastOut:''};
-            return <article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}>
-              <div className="customer-card-head"><b>{c.name}</b><span>누적 출고 {stats.totalOut.toLocaleString()}개</span></div>
-              <small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small>
-              <p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p>
-              <div className="customer-card-actions">
-                <button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>출고내역</button>
-                {isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}
-                {isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}
-              </div>
-            </article>;
-          })}
-        </div>
+        <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
+          <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>관리</th>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}><td><b>{c.name}</b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>거래내역</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>setSelectedId(c.id)}><div className="customer-card-head"><b>{c.name}</b><span>누적 출고 {stats.totalOut.toLocaleString()}개</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();setSelectedId(c.id)}}>거래내역</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
-
       <aside className="customer-history">
-        {!selected&&<div className="customer-history-empty"><Users size={34}/><b>거래처를 선택하세요</b><span>날짜별 출고수량과 품목을 확인할 수 있습니다.</span></div>}
-        {selected&&<>
-          <div className="customer-history-head"><div><small>거래처 출고현황</small><h3>{selected.name}</h3></div><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div>
+        {!selected&&<div className="customer-history-empty"><Users size={34}/><b>거래처를 선택하세요</b><span>출고·반품 내역과 건별 거래명세표를 확인할 수 있습니다.</span></div>}
+        {selected&&<><div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div>
           <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div></div>
-          <div className="customer-history-summary"><div><small>거래 건수</small><strong>{orderGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-Number(l.quantity||0):Number(l.quantity||0)),0).toLocaleString()}개</strong></div><div><small>출고 품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
-          <div className="daily-shipments">
-            {orderGroups.map(group=>{
-              const total=group.logs.reduce((sum,log)=>sum+Number(log.quantity||0),0);
-              return <article key={group.key} className={group.isReturn?'return-order':''}>
-                <div className="daily-shipment-head">
-                  <div><small>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</small><b>{group.isReturn?'반품':(group.orderNumber?`주문번호 ${group.orderNumber}`:'개별 출고')}</b></div>
-                  <div><strong>{group.isReturn?'-':'+'}{total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>{group.isReturn?'반품 명세표':'명세표 발행'}</button></div>
-                </div>
-                <div className="daily-items">{group.logs.map(log=><div key={log.id}><span>{log.product_name}</span><b>{Number(log.quantity||0).toLocaleString()}개</b></div>)}</div>
-              </article>;
-            })}
-            {!orderGroups.length&&<Empty text="선택한 기간의 출고·반품 내역이 없습니다."/>}
-          </div>
+          <div className="customer-history-summary"><div><small>거래 건수</small><strong>{transactionGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-1:1)*Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
+          <div className="daily-shipments">{transactionGroups.map(group=><article key={group.key} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.order?`주문번호 ${group.order}`:'주문번호 없음'}</small></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=><div key={log.id}><span>{group.returned?'[반품] ':''}{log.product_name}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b></div>)}</div></article>)}{!transactionGroups.length&&<Empty text="선택한 기간의 거래내역이 없습니다."/>}</div>
         </>}
       </aside>
     </div>
-    {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>}
+    {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>} 
   </section>;
 }
 
 function InvoiceModal({customer,logs,products,onClose}){
   const today=new Date().toLocaleDateString('en-CA');
-  const selectedLogDate=logs?.[0]?.created_at
-    ? new Date(logs[0].created_at).toLocaleDateString('en-CA')
-    : today;
 
   function normalizeProductName(value){
     return String(value||'')
@@ -987,7 +980,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     }
   );
 
-  const [issueDate,setIssueDate]=useState(selectedLogDate);
+  const [issueDate,setIssueDate]=useState(today);
   const [note,setNote]=useState('');
   const [priceType,setPriceType]=useState(
     customer.price_type||'wholesale'
@@ -1036,12 +1029,13 @@ function InvoiceModal({customer,logs,products,onClose}){
         : 0;
 
       const savedLogPrice=Number(log.unit_price||0);
+      const isReturn=log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
 
       if(!grouped[key]){
         grouped[key]={
           id:key,
           date,
-          name:log.product_name||product?.name||'',
+          name:`${isReturn?'[반품] ':''}${log.product_name||product?.name||''}`,
           spec,
           quantity:0,
           unitPrice:savedLogPrice>0
@@ -1052,9 +1046,7 @@ function InvoiceModal({customer,logs,products,onClose}){
         };
       }
 
-      grouped[key].quantity+=isReturnLog(log)
-        ? -Number(log.quantity||0)
-        : Number(log.quantity||0);
+      grouped[key].quantity+=(isReturn?-1:1)*Number(log.quantity||0);
     });
 
     return Object.values(grouped)
@@ -1194,70 +1186,15 @@ function InvoiceModal({customer,logs,products,onClose}){
       <tr><th>주소</th><td colSpan="3">{[customer.address,customer.address_detail].filter(Boolean).join(' ')}</td><th>주소</th><td colSpan="3">{editable?<input value={supplier.address} onChange={e=>updateSupplier('address',e.target.value)}/>:supplier.address}</td></tr>
       <tr><th>전화</th><td colSpan="3">{customer.phone||''}</td><th>전화</th><td>{editable?<input value={supplier.phone} onChange={e=>updateSupplier('phone',e.target.value)}/>:supplier.phone}</td><th>팩스</th><td>{editable?<input value={supplier.fax||''} onChange={e=>updateSupplier('fax',e.target.value)}/>:supplier.fax}</td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
-      <table className="invoice-items">
-        <colgroup>
-          <col style={{width:'6%'}}/>
-          <col style={{width:'6%'}}/>
-          <col style={{width:'34%'}}/>
-          <col style={{width:'10%'}}/>
-          <col style={{width:'14%'}}/>
-          <col style={{width:'16%'}}/>
-          <col style={{width:'14%'}}/>
-        </colgroup>
-        <thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
+      <table className="invoice-items"><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
       {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
         <td>{editable?<input value={d[1]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`)}/>:d[1]}</td>
         <td>{editable?<input value={d[2]||''} onChange={e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`)}/>:d[2]}</td>
-        <td style={{position:'relative'}}>
-          {editable
-            ? <>
-                <input
-                  value={item.name}
-                  onChange={e=>updateItem(index,'name',e.target.value)}
-                  style={{paddingRight:'28px'}}
-                />
-                <button
-                  type="button"
-                  className="invoice-delete no-print"
-                  onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}
-                  aria-label="품목 삭제"
-                  style={{
-                    position:'absolute',
-                    top:'50%',
-                    right:'3px',
-                    transform:'translateY(-50%)',
-                    width:'22px',
-                    height:'22px',
-                    padding:0,
-                    border:0,
-                    background:'transparent',
-                    lineHeight:1
-                  }}
-                >
-                  ×
-                </button>
-              </>
-            : item.name}
-        </td>
-        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td>
-        <td>{editable?<input className="money-input" inputMode="numeric" value={fmt(item.unitPrice)} onChange={e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/>:fmt(item.unitPrice)}</td>
-        <td className="money">{fmt(supply)}</td>
-        <td className="money">{fmt(tax)}</td>
+        <td style={{position:'relative'}}>{editable?<><input style={{paddingRight:24}} value={item.name} onChange={e=>updateItem(index,'name',e.target.value)}/><button type="button" className="invoice-delete no-print" style={{position:'absolute',right:2,top:'50%',transform:'translateY(-50%)'}} onClick={()=>setItems(current=>current.filter((_,i)=>i!==index))}>×</button></>:item.name}</td>
+        <td>{editable?<input type="number" min="0" value={item.quantity} onChange={e=>updateItem(index,'quantity',e.target.value)}/>:item.quantity}</td><td>{editable?<input className="money-input" inputMode="numeric" value={fmt(item.unitPrice)} onChange={e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/>:fmt(item.unitPrice)}</td><td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>
       </tr>})}
-      {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=>
-        <tr className="invoice-empty-row" key={'empty-'+i}>
-          <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-        </tr>
-      )}
-      </tbody>
-        <tfoot>
-          <tr>
-            <th className="total-label" colSpan="5">합계</th>
-            <td className="money total-money">{fmt(supplyTotal)}</td>
-            <td className="money total-money">{fmt(taxTotal)}</td>
-          </tr>
-        </tfoot>
-      </table>
+      {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}
+      </tbody><tfoot><tr><th className="total-label" colSpan="5">합계</th><td className="money total-money">{fmt(supplyTotal)}</td><td className="money total-money">{fmt(taxTotal)}</td></tr></tfoot></table>
       <div className="invoice-note"><b>비고</b>{editable?<textarea placeholder="비고 내용을 입력하세요" value={note} onChange={e=>setNote(e.target.value)}/>:<div>{note}</div>}</div>
       <div className="invoice-account"><b>입금계좌</b>{editable?<input placeholder="예: 국민은행 000000-00-000000 예금주 OTO" value={supplier.bankAccount||''} onChange={e=>updateSupplier('bankAccount',e.target.value)}/>:<div>{supplier.bankAccount||''}</div>}</div>
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
