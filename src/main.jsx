@@ -2343,4 +2343,3 @@ if('serviceWorker'in navigator){
     }
   });
 }
-
