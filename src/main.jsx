@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.1.2';
+const APP_VERSION='5.2.0';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -306,6 +306,35 @@ function App(){
     }
   }
 
+  function applyMovementSaved(movement){
+    const delta=(movement.type==='in'||movement.type==='return')?Number(movement.quantity):-Number(movement.quantity);
+    setProducts(current=>current.map(item=>
+      item.id===movement.product_id
+        ? {...item,quantity:Number(item.quantity||0)+delta}
+        : item
+    ));
+    setLogs(current=>[{
+      id:`temp-${Date.now()}`,
+      product_id:movement.product_id,
+      product_name:movement.product_name,
+      movement_type:movement.type==='return'?'in':movement.type,
+      quantity:Number(movement.quantity),
+      staff_name:profile.name,
+      customer_id:movement.customer_id||null,
+      customer_name:movement.customer_name||null,
+      recipient_name:movement.recipient_name||null,
+      destination:movement.destination||null,
+      destination_detail:movement.destination_detail||null,
+      courier:movement.courier||null,
+      tracking_number:movement.tracking_number||null,
+      order_number:movement.order_number||null,
+      memo:movement.memo||null,
+      created_at:new Date().toISOString()
+    },...current]);
+    setMoveModal(null);
+    setTimeout(()=>loadAll({silent:true}),500);
+  }
+
   const isAdmin=profile?.role==='admin';
   const today=new Date().toLocaleDateString('en-CA');
   const filtered=products.filter(p=>[p.name,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()));
@@ -375,7 +404,7 @@ function App(){
       }
 
       {tab==='logs'&&<Logs logs={logs} products={products} isAdmin={isAdmin} onMove={setMoveModal} onDelete={deleteStockLog}/>}
-      {tab==='customers'&&<Customers customers={customers} products={products} logs={logs} isAdmin={isAdmin} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
+      {tab==='customers'&&<Customers customers={customers} products={products} logs={logs} isAdmin={isAdmin} profile={profile} user={session.user} onReturnSaved={applyMovementSaved} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
       {tab==='sales'&&<SalesDashboard logs={logs} products={products} customers={customers}/>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
 
@@ -389,34 +418,7 @@ function App(){
       profile={profile}
       user={session.user}
       onClose={()=>setMoveModal(null)}
-      onSaved={(movement)=>{
-        const delta=(movement.type==='in'||movement.type==='return')?Number(movement.quantity):-Number(movement.quantity);
-        setProducts(current=>current.map(item=>
-          item.id===movement.product_id
-            ? {...item,quantity:Number(item.quantity||0)+delta}
-            : item
-        ));
-        setLogs(current=>[{
-          id:`temp-${Date.now()}`,
-          product_id:movement.product_id,
-          product_name:movement.product_name,
-          movement_type:movement.type==='return'?'in':movement.type,
-          quantity:Number(movement.quantity),
-          staff_name:profile.name,
-          customer_id:movement.customer_id||null,
-          customer_name:movement.customer_name||null,
-          recipient_name:movement.recipient_name||null,
-          destination:movement.destination||null,
-          destination_detail:movement.destination_detail||null,
-          courier:movement.courier||null,
-          tracking_number:movement.tracking_number||null,
-          order_number:movement.order_number||null,
-          memo:movement.memo||null,
-          created_at:new Date().toISOString()
-        },...current]);
-        setMoveModal(null);
-        setTimeout(()=>loadAll({silent:true}),500);
-      }}
+      onSaved={applyMovementSaved}
     />}
     {customerModal&&<CustomerModal value={customerModal} onClose={()=>setCustomerModal(null)} onSaved={()=>{setCustomerModal(null);loadAll()}}/>}
     {loading&&<div className="loading">데이터를 안전하게 불러오는 중…</div>}
@@ -819,15 +821,96 @@ function SalesDashboard({logs,products,customers}){
   </section>;
 }
 
-function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
+function ReturnFromLogModal({log,customer,product,alreadyReturned,profile,user,onClose,onSaved}){
+  const originalQty=Number(log.quantity||0);
+  const remaining=Math.max(0,originalQty-Number(alreadyReturned||0));
+  const [qty,setQty]=useState(remaining>0?1:0);
+  const [memo,setMemo]=useState('');
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+
+  async function save(event){
+    event.preventDefault();
+    if(saving)return;
+    const amount=Number(qty);
+    if(!product?.id){setError('연결된 상품을 찾을 수 없어 반품할 수 없습니다.');return;}
+    if(!Number.isFinite(amount)||amount<=0){setError('반품 수량을 1개 이상 입력하세요.');return;}
+    if(amount>remaining){setError(`반품 가능한 수량은 최대 ${remaining.toLocaleString()}개입니다.`);return;}
+    setSaving(true);setError('');
+    try{
+      const storedMemo=`[반품] 원출고ID: ${log.id}${log.order_number?` / 원주문번호: ${log.order_number}`:''}${memo.trim()?` / 사유: ${memo.trim()}`:''}`;
+      const {error}=await supabase.rpc('process_stock_movement',{
+        p_product_id:product.id,
+        p_type:'in',
+        p_quantity:amount,
+        p_user_id:user.id,
+        p_staff_name:profile.name,
+        p_customer_id:customer.id,
+        p_customer_name:customer.name,
+        p_recipient_name:log.recipient_name||customer.recipient_name||null,
+        p_destination:log.destination||customer.address||null,
+        p_destination_postal_code:customer.postal_code||null,
+        p_destination_detail:log.destination_detail||customer.address_detail||null,
+        p_recipient_phone:customer.phone||null,
+        p_courier:null,
+        p_tracking_number:null,
+        p_order_number:log.order_number||null,
+        p_memo:storedMemo
+      });
+      if(error)throw error;
+      onSaved({
+        product_id:product.id,
+        product_name:log.product_name||product.name,
+        type:'return',
+        quantity:amount,
+        customer_id:customer.id,
+        customer_name:customer.name,
+        recipient_name:log.recipient_name||customer.recipient_name||null,
+        destination:log.destination||customer.address||null,
+        destination_detail:log.destination_detail||customer.address_detail||null,
+        order_number:log.order_number||null,
+        memo:storedMemo
+      });
+      onClose();
+    }catch(e){
+      const message=normalizeError(e);
+      setError(message.includes('process_stock_movement')?'반품 처리 함수가 없습니다. Supabase SQL 설정을 확인하세요.':message);
+    }finally{setSaving(false)}
+  }
+
+  return <Modal title="출고상품 반품 처리" onClose={onClose}>
+    <form className="form-grid" onSubmit={save}>
+      <div className="full" style={{padding:14,border:'1px solid #e4e7ec',borderRadius:12,background:'#f9fafb'}}>
+        <b style={{display:'block',marginBottom:6}}>{log.product_name}</b>
+        <small style={{display:'block',color:'#667085'}}>출고일 {new Date(log.created_at).toLocaleDateString('ko-KR')} · 출고 {originalQty.toLocaleString()}개 · 기존 반품 {Number(alreadyReturned||0).toLocaleString()}개</small>
+        <strong style={{display:'block',marginTop:8,color:remaining?'#175cd3':'#d92d20'}}>반품 가능 {remaining.toLocaleString()}개</strong>
+      </div>
+      <Field label="반품 수량" type="number" value={qty} set={setQty}/>
+      <Field label="반품 사유 (선택)" value={memo} set={setMemo}/>
+      {error&&<div className="error full">{error}</div>}
+      <button className="primary full" disabled={saving||remaining<=0}>{saving?'반품 처리 중…':remaining>0?'반품 처리':'전량 반품 완료'}</button>
+    </form>
+  </Modal>;
+}
+
+function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,onAdd,onEdit,onDelete}){
   const [query,setQuery]=useState('');
   const [selectedId,setSelectedId]=useState('');
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
   const [sort,setSort]=useState({key:'name',direction:'asc'});
   const [invoiceLogs,setInvoiceLogs]=useState(null);
+  const [returnLog,setReturnLog]=useState(null);
 
   const isReturnLog=log=>log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
+  const returnedForLog=log=>logs
+    .filter(item=>isReturnLog(item)&&String(item.memo||'').includes(`원출고ID: ${log.id}`))
+    .reduce((sum,item)=>sum+Number(item.quantity||0),0);
+
+  function matchedProductForLog(log){
+    return products.find(product=>String(product.id)===String(log.product_id))
+      ||products.find(product=>String(log.product_name||'').startsWith(product.name));
+  }
 
   const customerStats=useMemo(()=>{
     const stats={};
@@ -914,10 +997,11 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
         {selected&&<><div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div>
           <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div></div>
           <div className="customer-history-summary"><div><small>거래 건수</small><strong>{transactionGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-1:1)*Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
-          <div className="daily-shipments">{transactionGroups.map(group=><article key={group.key} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.orderNumbers.length?`주문번호 ${group.orderNumbers.join(', ')}`:'주문번호 없음'}</small></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=><div key={log.id}><span>{group.returned?'[반품] ':''}{log.product_name}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b></div>)}</div></article>)}{!transactionGroups.length&&<Empty text="선택한 기간의 거래내역이 없습니다."/>}</div>
+          <div className="daily-shipments">{transactionGroups.map(group=><article key={group.key} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.orderNumbers.length?`주문번호 ${group.orderNumbers.join(', ')}`:'주문번호 없음'}</small></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=>{const returnedQty=group.returned?0:returnedForLog(log);const remaining=Math.max(0,Number(log.quantity||0)-returnedQty);return <div key={log.id} style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto auto',alignItems:'center',gap:8}}><span>{group.returned?'[반품] ':''}{log.product_name}{!group.returned&&returnedQty>0?<small style={{display:'block',color:'#d92d20',marginTop:2}}>반품 {returnedQty.toLocaleString()}개 · 잔여 {remaining.toLocaleString()}개</small>:null}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b>{!group.returned&&<button type="button" className="ghost" disabled={remaining<=0} onClick={()=>setReturnLog(log)} style={{padding:'6px 10px',fontSize:12,whiteSpace:'nowrap'}}>{remaining>0?'반품':'반품완료'}</button>}</div>})}</div></article>)}{!transactionGroups.length&&<Empty text="선택한 기간의 거래내역이 없습니다."/>}</div>
         </>}
       </aside>
     </div>
+    {returnLog&&selected&&<ReturnFromLogModal log={returnLog} customer={selected} product={matchedProductForLog(returnLog)} alreadyReturned={returnedForLog(returnLog)} profile={profile} user={user} onClose={()=>setReturnLog(null)} onSaved={onReturnSaved}/>}
     {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>} 
   </section>;
 }
