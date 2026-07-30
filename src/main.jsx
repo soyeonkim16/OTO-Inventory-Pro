@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.0.1';
+const APP_VERSION='6.1';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -209,6 +209,179 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
     .statement-copy{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }`;
   document.head.appendChild(style);
+}
+
+
+/* v6.1 이미지 시안 기반 전체 UI */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v61-ui')){
+  const uiStyle=document.createElement('style');
+  uiStyle.id='oto-v61-ui';
+  uiStyle.textContent=`
+  :root{
+    --ui-blue:#155eef;
+    --ui-blue-dark:#004eeb;
+    --ui-blue-soft:#eef4ff;
+    --ui-border:#e4e7ec;
+    --ui-border-strong:#d0d5dd;
+    --ui-text:#101828;
+    --ui-muted:#667085;
+    --ui-bg:#f7f9fc;
+    --ui-card:#ffffff;
+    --ui-red:#d92d20;
+    --ui-orange:#f79009;
+    --ui-shadow:0 8px 24px rgba(16,24,40,.06);
+  }
+  html{background:var(--ui-bg)!important;}
+  body{background:var(--ui-bg)!important;color:var(--ui-text)!important;}
+  .app{min-height:100vh!important;background:var(--ui-bg)!important;}
+  .app>header{
+    position:sticky!important;top:0!important;z-index:50!important;
+    min-height:68px!important;padding:0 22px!important;
+    background:rgba(255,255,255,.96)!important;
+    border-bottom:1px solid var(--ui-border)!important;
+    box-shadow:0 1px 2px rgba(16,24,40,.03)!important;
+    backdrop-filter:blur(10px)!important;
+  }
+  .brand{gap:10px!important;}
+  .brand .header-logo{width:40px!important;height:40px!important;border-radius:11px!important;box-shadow:0 4px 12px rgba(21,94,239,.18)!important;}
+  .brand b{font-size:16px!important;letter-spacing:-.2px!important;}
+  .brand small{display:block!important;margin-top:2px!important;font-size:12px!important;color:var(--ui-muted)!important;}
+  .header-actions{gap:8px!important;}
+  .header-actions button{height:38px!important;border:1px solid var(--ui-border)!important;border-radius:10px!important;background:#fff!important;}
+
+  .app>main{width:100%!important;max-width:none!important;margin:0!important;padding:18px 22px 30px!important;box-sizing:border-box!important;}
+  .stats{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important;margin:0 0 12px!important;}
+  .stat{
+    min-height:88px!important;padding:18px 20px!important;
+    border:1px solid var(--ui-border)!important;border-radius:15px!important;
+    background:var(--ui-card)!important;box-shadow:var(--ui-shadow)!important;
+    display:flex!important;flex-direction:column!important;justify-content:center!important;
+  }
+  .stat small{font-size:12px!important;font-weight:600!important;color:var(--ui-muted)!important;}
+  .stat strong{margin-top:7px!important;font-size:27px!important;line-height:1!important;letter-spacing:-.8px!important;color:var(--ui-text)!important;}
+  .stat.danger strong{color:var(--ui-red)!important;}
+
+  .app nav{display:flex!important;align-items:center!important;gap:7px!important;margin:0 0 12px!important;padding:0!important;background:transparent!important;border:0!important;overflow-x:auto!important;}
+  .app nav button{
+    height:38px!important;padding:0 14px!important;border:1px solid var(--ui-border)!important;border-radius:9px!important;
+    background:#fff!important;color:#344054!important;font-size:13px!important;font-weight:700!important;box-shadow:0 1px 2px rgba(16,24,40,.03)!important;
+  }
+  .app nav button.active{background:var(--ui-blue)!important;border-color:var(--ui-blue)!important;color:#fff!important;box-shadow:0 4px 10px rgba(21,94,239,.22)!important;}
+
+  .panel,.customer-panel{
+    border:1px solid var(--ui-border)!important;border-radius:15px!important;background:#fff!important;
+    box-shadow:var(--ui-shadow)!important;overflow:hidden!important;
+  }
+  .toolbar{
+    min-height:64px!important;padding:12px 14px!important;border-bottom:1px solid var(--ui-border)!important;
+    background:#fff!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;
+  }
+  .search{height:38px!important;max-width:430px!important;border:1px solid var(--ui-border)!important;border-radius:9px!important;background:#fff!important;padding:0 12px!important;box-shadow:0 1px 2px rgba(16,24,40,.02)!important;}
+  .search:focus-within{border-color:#84adff!important;box-shadow:0 0 0 3px #eef4ff!important;}
+  .search input{font-size:13px!important;}
+  button{font-weight:700!important;}
+  button.primary{background:var(--ui-blue)!important;border-color:var(--ui-blue)!important;color:#fff!important;}
+  button.primary:hover{background:var(--ui-blue-dark)!important;}
+  button.ghost{background:#fff!important;border-color:var(--ui-border)!important;color:#344054!important;}
+  .danger-button{color:var(--ui-red)!important;border-color:#fda29b!important;background:#fff!important;}
+
+  .customer-table-wrap{overflow-x:auto!important;background:#fff!important;}
+  .customer-table{width:100%!important;border-collapse:separate!important;border-spacing:0!important;table-layout:auto!important;}
+  .customer-table thead th{height:39px!important;padding:0 11px!important;background:#f8fafc!important;border-bottom:1px solid var(--ui-border)!important;color:#667085!important;font-size:11.5px!important;font-weight:700!important;white-space:nowrap!important;}
+  .customer-table thead th button{padding:0!important;background:transparent!important;border:0!important;color:inherit!important;font-size:inherit!important;}
+  .customer-table tbody td{height:47px!important;padding:7px 11px!important;border-bottom:1px solid #eef1f5!important;font-size:12.5px!important;vertical-align:middle!important;background:#fff!important;}
+  .customer-table tbody tr:not(.customer-inline-detail-row):hover td{background:#f9fbff!important;}
+  .customer-table tbody tr.selected td{background:#eef4ff!important;border-bottom-color:#d6e4ff!important;}
+  .customer-table tbody tr.selected td:first-child{box-shadow:inset 3px 0 0 var(--ui-blue)!important;}
+  .customer-table td:first-child b{font-size:13px!important;color:#101828!important;}
+  .customer-table tr.selected td:first-child b{color:var(--ui-blue)!important;}
+  .customer-expand-arrow{border:1px solid transparent!important;border-radius:6px!important;}
+  tr.selected .customer-expand-arrow{width:24px!important;height:24px!important;border-color:#b2ccff!important;background:#fff!important;}
+  .price-type-badge{min-width:42px!important;text-align:center!important;border-radius:999px!important;padding:4px 8px!important;font-size:11px!important;}
+  .price-type-badge.retail{background:#fff4e8!important;color:#f26b0a!important;}
+  .price-type-badge.wholesale{background:#eef4ff!important;color:#155eef!important;}
+  .customer-row-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex-wrap:nowrap!important;}
+  .customer-row-actions button{height:29px!important;padding:0 10px!important;border-radius:7px!important;font-size:11.5px!important;white-space:nowrap!important;}
+
+  .customer-inline-detail-row>td{background:#fff!important;padding:0!important;border-bottom:0!important;}
+  .customer-history-inline{
+    display:grid!important;grid-template-columns:minmax(260px,.78fr) minmax(360px,1.05fr) minmax(430px,1.35fr)!important;
+    gap:0!important;margin:0!important;padding:0!important;border:1px solid #b2ccff!important;border-radius:0 0 14px 14px!important;
+    background:#fff!important;box-shadow:0 10px 22px rgba(21,94,239,.06)!important;overflow:hidden!important;
+  }
+  .customer-history-inline .customer-history-head{
+    grid-column:1/-1!important;margin:0!important;min-height:56px!important;padding:10px 14px!important;
+    background:linear-gradient(90deg,#f3f7ff 0%,#fff 62%)!important;border-bottom:1px solid #d6e4ff!important;border-radius:0!important;
+  }
+  .customer-history-inline .customer-history-head small{font-size:11px!important;color:#667085!important;}
+  .customer-history-inline .customer-history-head h3{display:inline-block!important;margin:0 0 0 14px!important;font-size:18px!important;}
+  .customer-history-inline .customer-history-head>div:first-child{display:flex!important;align-items:center!important;}
+  .customer-history-inline .customer-history-head>div:last-child button{height:32px!important;padding:0 12px!important;border-radius:8px!important;font-size:12px!important;}
+  .customer-history-inline .customer-history-head>div:last-child button:first-child{background:#f26b0a!important;border-color:#f26b0a!important;color:#fff!important;}
+
+  .customer-history-inline .customer-history-filter,
+  .customer-history-inline .customer-history-summary,
+  .customer-history-inline .receivable-history-block,
+  .customer-history-inline .daily-shipments{min-width:0!important;}
+  .customer-history-inline .customer-history-filter{
+    grid-column:1!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;
+    margin:0!important;padding:14px!important;border:0!important;border-right:1px solid var(--ui-border)!important;border-radius:0!important;background:#fff!important;
+  }
+  .customer-history-inline .customer-history-filter:before{content:'기간 조회 및 통계';grid-column:1/-1;font-size:14px;font-weight:800;color:#101828;margin-bottom:2px;}
+  .customer-history-inline .customer-history-filter label{font-size:11px!important;color:#667085!important;}
+  .customer-history-inline .customer-history-filter input{height:36px!important;border-radius:8px!important;border-color:var(--ui-border)!important;font-size:12px!important;}
+  .customer-history-inline .customer-history-summary{
+    grid-column:1!important;display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;
+    margin:0!important;padding:0 14px 14px!important;border-right:1px solid var(--ui-border)!important;background:#fff!important;
+  }
+  .customer-history-inline .customer-history-summary>div{padding:11px!important;border:1px solid var(--ui-border)!important;border-radius:10px!important;background:#fff!important;}
+  .customer-history-inline .customer-history-summary>div:last-child{grid-column:1/-1!important;}
+  .customer-history-inline .customer-history-summary small{font-size:11px!important;color:#667085!important;}
+  .customer-history-inline .customer-history-summary strong{display:block!important;margin-top:6px!important;font-size:18px!important;}
+
+  .customer-history-inline .receivable-history-block{
+    grid-column:2!important;grid-row:2/span 2!important;margin:0!important;height:100%!important;
+    border:0!important;border-right:1px solid var(--ui-border)!important;border-radius:0!important;background:#fff!important;
+  }
+  .customer-history-inline .receivable-history-block>div:first-child{min-height:48px!important;padding:12px 14px!important;background:#fff!important;border-bottom:1px solid var(--ui-border)!important;}
+  .customer-history-inline .receivable-history-block>div:first-child b{font-size:14px!important;}
+  .customer-history-inline .receivable-history-block>div>div{font-size:12px!important;}
+  .customer-history-inline .receivable-history-block button{height:27px!important;font-size:11px!important;}
+
+  .customer-history-inline .daily-shipments{
+    grid-column:3!important;grid-row:2/span 2!important;margin:0!important;padding:14px!important;display:grid!important;align-content:start!important;gap:9px!important;background:#fff!important;
+  }
+  .customer-history-inline .daily-shipments:before{content:'거래 내역 (출고/반품)';font-size:14px;font-weight:800;color:#101828;margin-bottom:1px;}
+  .customer-history-inline .daily-shipments article{border:1px solid var(--ui-border)!important;border-left:1px solid var(--ui-border)!important;border-radius:10px!important;box-shadow:none!important;background:#fff!important;}
+  .customer-history-inline .daily-shipment-head{padding:9px 10px!important;background:#fff!important;border-bottom:1px solid #f0f2f5!important;}
+  .customer-history-inline .daily-items{padding:7px 10px!important;font-size:12px!important;}
+  .customer-history-inline .invoice-open-button{height:29px!important;padding:0 9px!important;border-radius:7px!important;}
+
+  @media(max-width:1320px){
+    .app>main{padding-left:16px!important;padding-right:16px!important;}
+    .customer-history-inline{grid-template-columns:minmax(250px,.82fr) minmax(0,1.18fr)!important;}
+    .customer-history-inline .daily-shipments{grid-column:1/-1!important;grid-row:auto!important;border-top:1px solid var(--ui-border)!important;}
+  }
+  @media(max-width:900px){
+    .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+    .toolbar{align-items:stretch!important;flex-direction:column!important;}
+    .search{max-width:none!important;width:100%!important;}
+    .customer-history-inline{display:block!important;border-radius:0 0 12px 12px!important;}
+    .customer-history-inline .customer-history-filter,.customer-history-inline .customer-history-summary,.customer-history-inline .receivable-history-block{border-right:0!important;border-bottom:1px solid var(--ui-border)!important;}
+  }
+  @media(max-width:560px){
+    .app>header{padding:0 12px!important;}
+    .app>main{padding:12px!important;}
+    .stats{gap:8px!important;}
+    .stat{min-height:76px!important;padding:14px!important;}
+    .stat strong{font-size:23px!important;}
+    .customer-history-inline .customer-history-head{align-items:flex-start!important;}
+    .customer-history-inline .customer-history-head>div:last-child{width:100%!important;margin-top:8px!important;}
+  }
+  @media print{
+    .app>header,.app nav,.stats{display:none!important;}
+  }`;
+  document.head.appendChild(uiStyle);
 }
 
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
@@ -1699,7 +1872,7 @@ function InvoiceModal({customer,logs,products,onClose}){
         <td><input {...inputProps(d[2]||'',e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`))}/></td>
         <td style={{position:'relative'}}><input style={{paddingRight:24}} {...inputProps(item.name,e=>updateItem(index,'name',e.target.value))}/>{editable&&<button type="button" className="invoice-delete no-print" title="이 품목 삭제" aria-label="이 품목 삭제" style={{position:'absolute',right:3,top:'50%',transform:'translateY(-50%)',width:24,height:24,padding:0,border:'none',background:'transparent',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>{if(items.length<=1){window.alert('거래명세표에는 품목이 최소 1개 필요합니다.');return;}setItems(current=>current.filter((_,i)=>i!==index));}}><Trash2 size={15}/></button>}</td>
         <td><input type="number" min="0" {...inputProps(item.quantity,e=>updateItem(index,'quantity',e.target.value))}/></td>
-        <td><input className="money-input" inputMode="numeric" {...inputProps(fmt(item.unitPrice),e=>updateItem(index,'unitPrice',parseMoney(e.target.value))}/></td>
+        <td><input className="money-input" inputMode="numeric" {...inputProps(fmt(item.unitPrice),e=>updateItem(index,'unitPrice',parseMoney(e.target.value)))}/></td>
         <td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>
       </tr>})}
       {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}
