@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.5.0';
+const APP_VERSION='6.5.1';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -2026,7 +2026,6 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   const [selectedId,setSelectedId]=useState('');
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
-  const [detailProduct,setDetailProduct]=useState(null);
   const [sort,setSort]=useState({key:'name',direction:'asc'});
   const [invoiceLogs,setInvoiceLogs]=useState(null);
   const [returnLog,setReturnLog]=useState(null);
@@ -2974,6 +2973,7 @@ function EmployeeCreateModal({onClose,onCreate}){
 
 function Logs({logs,products,customers,isAdmin,onMove,onDelete}){
   const [selectedProductId,setSelectedProductId]=useState('');
+  const [detailProduct,setDetailProduct]=useState(null);
   const [query,setQuery]=useState('');
   const [type,setType]=useState('');
   const [from,setFrom]=useState('');
@@ -3041,7 +3041,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete}){
     <div className="log-list">
       {rows.map(log=><article key={log.id}>
         <span className={log.movement_type}>{log.movement_type==='in'?'입고':'출고'}</span>
-        <div><button type="button" className="log-product-link" onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button><small>{new Date(log.created_at).toLocaleString('ko-KR')} · {log.staff_name}</small>{log.movement_type==='out'&&<p>{[log.customer_name,log.recipient_name,[log.destination,log.destination_detail].filter(Boolean).join(' '),log.tracking_number].filter(Boolean).join(' · ')}</p>}</div>
+        <div><button type="button" className="log-product-link" title="입출고 상세보기" aria-label={`${log.product_name} 입출고 상세보기`} onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button><small>{new Date(log.created_at).toLocaleString('ko-KR')} · {log.staff_name}</small>{log.movement_type==='out'&&<p>{[log.customer_name,log.recipient_name,[log.destination,log.destination_detail].filter(Boolean).join(' '),log.tracking_number].filter(Boolean).join(' · ')}</p>}</div>
         <strong>{log.movement_type==='in'?'+':'-'}{formatNumber(log.quantity)}</strong>
         {isAdmin&&<button className="log-delete-button" onClick={()=>onDelete(log)}>삭제</button>}
       </article>)}
@@ -3065,6 +3065,8 @@ function ProductHistoryModal({product,logs,customers,onClose}){
   const lastIn=productLogs.find(log=>log.movement_type==='in');
   const lastOut=productLogs.find(log=>log.movement_type==='out');
   const recentCustomer=productLogs.find(log=>log.customer_name)?.customer_name||'-';
+  const totalIn=productLogs.filter(log=>log.movement_type==='in').reduce((sum,log)=>sum+Number(log.quantity||0),0);
+  const totalOut=productLogs.filter(log=>log.movement_type==='out').reduce((sum,log)=>sum+Number(log.quantity||0),0);
   const spec=[product.size,product.color].filter(value=>value&&value!=='없음').join(' / ')||'규격 없음';
   return <Modal title="상품 입출고 상세" onClose={onClose}>
     <div className="detail-hero">
@@ -3073,9 +3075,11 @@ function ProductHistoryModal({product,logs,customers,onClose}){
       <div className="detail-stock"><small>현재 재고</small><strong>{formatQty(product.quantity)}</strong></div>
     </div>
     <div className="detail-stat-grid">
-      <div><small>전체 입출고</small><strong>{formatNumber(productLogs.length)}건</strong></div>
+      <div><small>누적 입고</small><strong>{formatQty(totalIn)}</strong></div>
+      <div><small>누적 출고</small><strong>{formatQty(totalOut)}</strong></div>
       <div><small>마지막 입고</small><strong>{lastIn?new Date(lastIn.created_at).toLocaleDateString('ko-KR'):'-'}</strong></div>
       <div><small>마지막 출고</small><strong>{lastOut?new Date(lastOut.created_at).toLocaleDateString('ko-KR'):'-'}</strong></div>
+      <div><small>전체 기록</small><strong>{formatNumber(productLogs.length)}건</strong></div>
       <div><small>최근 거래처</small><strong>{recentCustomer}</strong></div>
     </div>
     <div className="detail-section-title">최근 입출고 20건</div>
