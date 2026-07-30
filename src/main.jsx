@@ -21,6 +21,10 @@ const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',qu
 const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',price_type:'wholesale',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 
+function isReturnLog(log){
+  return log?.movement_type==='in' && String(log?.memo||'').startsWith('[반품]');
+}
+
 
 function makeInternalSku(form){
   const clean=value=>String(value||'')
@@ -558,9 +562,15 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
     }
     setSaving(true);setError('');
     try{
+      const isReturn=form.type==='return';
+      const movementType=isReturn?'in':form.type;
+      const savedMemo=isReturn
+        ? `[반품]${form.memo?.trim()?` ${form.memo.trim()}`:''}`
+        : form.memo||null;
+
       const {error}=await supabase.rpc('process_stock_movement',{
         p_product_id:product.id,
-        p_type:form.type,
+        p_type:movementType,
         p_quantity:Number(form.qty),
         p_user_id:user.id,
         p_staff_name:profile.name,
@@ -574,14 +584,14 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
         p_courier:form.courier||null,
         p_tracking_number:form.tracking||null,
         p_order_number:form.order||null,
-        p_memo:form.memo||null
+        p_memo:savedMemo
       });
       if(error)throw error;
       const selectedCustomer=customers.find(c=>c.id===form.customer_id);
       onSaved({
         product_id:product.id,
         product_name:product.name,
-        type:form.type,
+        type:movementType,
         quantity:Number(form.qty),
         customer_id:form.customer_id||null,
         customer_name:selectedCustomer?.name||null,
@@ -591,7 +601,7 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
         courier:form.courier||null,
         tracking_number:form.tracking||null,
         order_number:form.order||null,
-        memo:form.memo||null
+        memo:savedMemo
       });
     }catch(e){
       const msg=normalizeError(e);
@@ -601,9 +611,9 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
 
   return <Modal title={`${product.name} 입출고`} onClose={onClose}>
     <form onSubmit={save} className="form-grid">
-      <Select label="구분" value={form.type} set={v=>setForm({...form,type:v})} options={['in','out']} labels={{in:'입고',out:'출고'}}/>
+      <Select label="구분" value={form.type} set={v=>setForm({...form,type:v})} options={['in','out','return']} labels={{in:'입고',out:'출고',return:'반품'}}/>
       <Field label="수량" type="number" value={form.qty} set={v=>setForm({...form,qty:v})}/>
-      {form.type==='out'&&<>
+      {(form.type==='out'||form.type==='return')&&<>
         <Select label="거래처" value={form.customer_id} set={pick} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/>
         <Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/>
         <Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/>
@@ -617,6 +627,7 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
         <Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/>
         <Field label="주문번호" value={form.order} set={v=>setForm({...form,order:v})}/>
       </>}
+      {form.type==='return'&&<div className="full return-help">반품 수량만큼 재고가 자동으로 다시 증가하며, 거래처 내역에는 반품으로 표시됩니다.</div>}
       <Field label="메모" value={form.memo} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'처리 중…':'처리'}</button>
@@ -670,17 +681,19 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
   const [sort,setSort]=useState({key:'name',direction:'asc'});
-  const [invoiceOpen,setInvoiceOpen]=useState(false);
+  const [invoiceLogs,setInvoiceLogs]=useState(null);
 
   const customerStats=useMemo(()=>{
     const stats={};
     customers.forEach(c=>{stats[c.id]={totalOut:0,lastOut:''}});
     logs.forEach(log=>{
-      if(log.movement_type!=='out')return;
+      const isOut=log.movement_type==='out';
+      const isReturn=isReturnLog(log);
+      if(!isOut&&!isReturn)return;
       const customer=customers.find(c=>log.customer_id===c.id||(!log.customer_id&&log.customer_name===c.name));
       if(!customer)return;
       if(!stats[customer.id])stats[customer.id]={totalOut:0,lastOut:''};
-      stats[customer.id].totalOut+=Number(log.quantity||0);
+      stats[customer.id].totalOut+=isReturn?-Number(log.quantity||0):Number(log.quantity||0);
       const date=log.created_at||'';
       if(date>stats[customer.id].lastOut)stats[customer.id].lastOut=date;
     });
@@ -728,7 +741,7 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
   const customerLogs=useMemo(()=>{
     if(!selected)return [];
     return logs.filter(log=>{
-      if(log.movement_type!=='out')return false;
+      if(log.movement_type!=='out'&&!isReturnLog(log))return false;
       const matchesCustomer=
         log.customer_id===selected.id ||
         (!log.customer_id && log.customer_name===selected.name);
@@ -754,6 +767,30 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
         total:data.total,
         items:Object.entries(data.items).sort((a,b)=>b[1]-a[1])
       }));
+  },[customerLogs]);
+
+  const orderGroups=useMemo(()=>{
+    const groups={};
+    customerLogs.forEach(log=>{
+      const date=new Date(log.created_at).toLocaleDateString('en-CA');
+      const returnType=isReturnLog(log);
+      const key=log.order_number
+        ? `${returnType?'return':'order'}|${log.order_number}`
+        : `${returnType?'return':'log'}|${log.id}`;
+      if(!groups[key]){
+        groups[key]={
+          key,
+          orderNumber:log.order_number||'',
+          date,
+          createdAt:log.created_at,
+          isReturn:returnType,
+          logs:[]
+        };
+      }
+      groups[key].logs.push(log);
+      if(log.created_at<groups[key].createdAt)groups[key].createdAt=log.created_at;
+    });
+    return Object.values(groups).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   },[customerLogs]);
 
   function exportCustomerCsv(){
@@ -846,21 +883,33 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
         {!selected&&<div className="customer-history-empty"><Users size={34}/><b>거래처를 선택하세요</b><span>날짜별 출고수량과 품목을 확인할 수 있습니다.</span></div>}
         {selected&&<>
           <div className="customer-history-head"><div><small>거래처 출고현황</small><h3>{selected.name}</h3></div><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div>
-          <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button><button className="invoice-open-button" disabled={!customerLogs.length} onClick={()=>setInvoiceOpen(true)}><Printer size={16}/>거래명세표</button></div></div>
-          <div className="customer-history-summary"><div><small>출고일수</small><strong>{dailyGroups.length.toLocaleString()}일</strong></div><div><small>총 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>출고 품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
+          <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div></div>
+          <div className="customer-history-summary"><div><small>거래 건수</small><strong>{orderGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-Number(l.quantity||0):Number(l.quantity||0)),0).toLocaleString()}개</strong></div><div><small>출고 품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
           <div className="daily-shipments">
-            {dailyGroups.map(day=><article key={day.date}><div className="daily-shipment-head"><b>{new Date(day.date+'T00:00:00').toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'})}</b><strong>{day.total.toLocaleString()}개</strong></div><div className="daily-items">{day.items.map(([item,qty])=><div key={item}><span>{item}</span><b>{qty.toLocaleString()}개</b></div>)}</div></article>)}
-            {!dailyGroups.length&&<Empty text="선택한 기간의 출고내역이 없습니다."/>}
+            {orderGroups.map(group=>{
+              const total=group.logs.reduce((sum,log)=>sum+Number(log.quantity||0),0);
+              return <article key={group.key} className={group.isReturn?'return-order':''}>
+                <div className="daily-shipment-head">
+                  <div><small>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</small><b>{group.isReturn?'반품':(group.orderNumber?`주문번호 ${group.orderNumber}`:'개별 출고')}</b></div>
+                  <div><strong>{group.isReturn?'-':'+'}{total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>{group.isReturn?'반품 명세표':'명세표 발행'}</button></div>
+                </div>
+                <div className="daily-items">{group.logs.map(log=><div key={log.id}><span>{log.product_name}</span><b>{Number(log.quantity||0).toLocaleString()}개</b></div>)}</div>
+              </article>;
+            })}
+            {!orderGroups.length&&<Empty text="선택한 기간의 출고·반품 내역이 없습니다."/>}
           </div>
         </>}
       </aside>
     </div>
-    {invoiceOpen&&selected&&<InvoiceModal customer={selected} products={products} logs={customerLogs} onClose={()=>setInvoiceOpen(false)}/>}
+    {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>}
   </section>;
 }
 
 function InvoiceModal({customer,logs,products,onClose}){
   const today=new Date().toLocaleDateString('en-CA');
+  const selectedLogDate=logs?.[0]?.created_at
+    ? new Date(logs[0].created_at).toLocaleDateString('en-CA')
+    : today;
 
   function normalizeProductName(value){
     return String(value||'')
@@ -938,7 +987,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     }
   );
 
-  const [issueDate,setIssueDate]=useState(today);
+  const [issueDate,setIssueDate]=useState(selectedLogDate);
   const [note,setNote]=useState('');
   const [priceType,setPriceType]=useState(
     customer.price_type||'wholesale'
@@ -1003,7 +1052,9 @@ function InvoiceModal({customer,logs,products,onClose}){
         };
       }
 
-      grouped[key].quantity+=Number(log.quantity||0);
+      grouped[key].quantity+=isReturnLog(log)
+        ? -Number(log.quantity||0)
+        : Number(log.quantity||0);
     });
 
     return Object.values(grouped)
