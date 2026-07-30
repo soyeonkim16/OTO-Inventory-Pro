@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.5.3';
+const APP_VERSION='5.5.4';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -101,7 +101,35 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
 
   /* 선택한 거래처 행 바로 아래 펼쳐지는 거래현황 */
   .customer-history-inline{margin:0!important;border:0!important;border-top:1px solid #dbe3ef!important;border-bottom:1px solid #dbe3ef!important;border-radius:0!important;background:#f8fafc!important;}
-  .customer-history-inline .customer-history-head{border-radius:0!important;}
+  .customer-history-inline .customer-history-head{
+    border-radius:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:12px!important;
+  }
+  .customer-history-inline .customer-history-head>div:first-child{
+    min-width:0!important;
+    flex:1 1 auto!important;
+  }
+  .customer-history-inline .customer-history-head>div:last-child{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:6px!important;
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:max-content!important;
+    flex-wrap:nowrap!important;
+  }
+  .customer-history-inline .customer-history-head>div:last-child button{
+    width:auto!important;
+    min-width:max-content!important;
+    flex:0 0 auto!important;
+    white-space:nowrap!important;
+    word-break:keep-all!important;
+    writing-mode:horizontal-tb!important;
+  }
   .customer-inline-detail-row>td{padding:0!important;background:#f8fafc!important;border-bottom:2px solid #2563eb!important;}
   .customer-mobile-inline-detail{padding:0!important;margin:-1px 0 12px!important;border:1px solid #dbe3ef!important;border-top:0!important;border-radius:0 0 14px 14px!important;overflow:hidden!important;}
 
