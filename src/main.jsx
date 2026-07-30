@@ -4,7 +4,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='5.4';
+const APP_VERSION='5.5';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -90,22 +90,27 @@ const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 const RECEIVABLE_STORAGE_KEY='oto_receivable_entries';
 
-function readReceivableEntries(){
+// v5.4까지 브라우저에 저장된 자료를 Supabase로 옮길 때만 사용합니다.
+function readLegacyReceivableEntries(){
   try{
     const parsed=JSON.parse(localStorage.getItem(RECEIVABLE_STORAGE_KEY)||'[]');
     return Array.isArray(parsed)?parsed:[];
   }catch{return []}
 }
 
-function writeReceivableEntries(entries){
-  localStorage.setItem(RECEIVABLE_STORAGE_KEY,JSON.stringify(entries));
-  window.dispatchEvent(new CustomEvent('oto-receivables-updated',{detail:entries}));
-}
-
-function addReceivableEntry(entry){
-  const next=[...readReceivableEntries(),entry];
-  writeReceivableEntries(next);
-  return next;
+function normalizeReceivableRow(row){
+  return {
+    ...row,
+    customerId:String(row.customer_id||row.customerId||''),
+    customerName:row.customer_name||row.customerName||'',
+    type:row.entry_type||row.type||'charge',
+    amount:Number(row.amount||0),
+    date:row.entry_date||row.date||'',
+    method:row.method||'',
+    memo:row.memo||'',
+    createdAt:row.created_at||row.createdAt||'',
+    source:row.source||''
+  };
 }
 
 
@@ -687,18 +692,18 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
         const unitPrice=Number(selectedCustomer?.price_type==='retail'?product.retail_price:product.wholesale_price)||0;
         const receivableAmount=Number(form.receivable_amount||unitPrice*Number(form.qty||0));
         if(receivableAmount>0){
-          addReceivableEntry({
-            id:`rcv_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-            customerId:String(selectedCustomer.id),
-            customerName:selectedCustomer.name,
-            type:'charge',
+          const {error:receivableError}=await supabase.from('receivable_entries').insert({
+            customer_id:selectedCustomer.id,
+            customer_name:selectedCustomer.name,
+            entry_type:'charge',
             amount:receivableAmount,
-            date:new Date().toLocaleDateString('en-CA'),
+            entry_date:new Date().toLocaleDateString('en-CA'),
             method:'출고 외상',
             memo:[product.name+` ${Number(form.qty||0).toLocaleString()}개`,form.order?`주문번호 ${form.order}`:'',form.memo||''].filter(Boolean).join(' · '),
-            createdAt:new Date().toISOString(),
-            source:'stock_out'
+            source:'stock_out',
+            created_by:user.id
           });
+          if(receivableError)throw new Error('출고는 처리되었지만 미수금 저장에 실패했습니다: '+receivableError.message);
         }
       }
       onSaved({
@@ -1015,26 +1020,32 @@ function ReturnFromLogModal({log,customer,product,alreadyReturned,profile,user,o
 }
 
 
-function ReceivableModal({customer,mode,onClose,onSaved}){
+function ReceivableModal({customer,mode,user,onClose,onSaved}){
   const [amount,setAmount]=useState('');
   const [date,setDate]=useState(new Date().toLocaleDateString('en-CA'));
   const [method,setMethod]=useState(mode==='payment'?'계좌이체':'외상');
   const [memo,setMemo]=useState('');
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
 
-  function save(){
+  async function save(){
     const value=Number(String(amount).replace(/,/g,''));
-    if(!Number.isFinite(value)||value<=0){alert('금액을 올바르게 입력해주세요.');return}
-    onSaved({
-      id:`rcv_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-      customerId:String(customer.id),
-      customerName:customer.name,
-      type:mode,
-      amount:value,
-      date,
-      method,
-      memo:memo.trim(),
-      createdAt:new Date().toISOString()
-    });
+    if(!Number.isFinite(value)||value<=0){setError('금액을 올바르게 입력해주세요.');return}
+    if(!date){setError('처리일을 선택해주세요.');return}
+    setSaving(true);setError('');
+    try{
+      await onSaved({
+        customer_id:customer.id,
+        customer_name:customer.name,
+        entry_type:mode,
+        amount:value,
+        entry_date:date,
+        method,
+        memo:memo.trim()||null,
+        source:'manual',
+        created_by:user?.id||null
+      });
+    }catch(e){setError(normalizeError(e))}finally{setSaving(false)}
   }
 
   return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
@@ -1045,8 +1056,9 @@ function ReceivableModal({customer,mode,onClose,onSaved}){
         <Select label={mode==='charge'?'구분':'입금수단'} value={method} set={setMethod} options={mode==='charge'?['외상','추가 미수','기타']:['계좌이체','현금','카드','기타']}/>
         <div style={{gridColumn:'1 / -1'}}><Input label={mode==='charge'?'미수금액':'입금금액'} type="number" value={amount} set={setAmount}/></div>
         <div style={{gridColumn:'1 / -1'}}><Input label="메모" value={memo} set={setMemo} placeholder={mode==='charge'?'예: 7월 30일 출고대금':'예: 국민은행 입금'}/></div>
+        {error&&<div className="error" style={{gridColumn:'1 / -1'}}>{error}</div>}
       </div>
-      <div className="modal-actions"><button onClick={onClose}>취소</button><button className="primary" onClick={save}>{mode==='charge'?'미수금 등록':'입금 처리'}</button></div>
+      <div className="modal-actions"><button onClick={onClose} disabled={saving}>취소</button><button className="primary" onClick={save} disabled={saving}>{saving?'저장 중…':mode==='charge'?'미수금 등록':'입금 처리'}</button></div>
     </div>
   </div>;
 }
@@ -1060,20 +1072,28 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   const [invoiceLogs,setInvoiceLogs]=useState(null);
   const [returnLog,setReturnLog]=useState(null);
   const [receivableModal,setReceivableModal]=useState(null);
-  const [receivableEntries,setReceivableEntries]=useState(()=>{
-    return readReceivableEntries()
-  });
+  const [receivableEntries,setReceivableEntries]=useState([]);
+  const [receivableLoading,setReceivableLoading]=useState(false);
+  const [receivableError,setReceivableError]=useState('');
+  const [legacyCount,setLegacyCount]=useState(()=>readLegacyReceivableEntries().length);
+
+  async function loadReceivables({silent=false}={}){
+    if(!silent)setReceivableLoading(true);
+    setReceivableError('');
+    try{
+      const {data,error}=await supabase.from('receivable_entries').select('*').order('entry_date',{ascending:false}).order('created_at',{ascending:false});
+      if(error)throw error;
+      setReceivableEntries((data||[]).map(normalizeReceivableRow));
+    }catch(e){setReceivableError(normalizeError(e))}finally{if(!silent)setReceivableLoading(false)}
+  }
 
   useEffect(()=>{
-    const sync=event=>setReceivableEntries(Array.isArray(event.detail)?event.detail:readReceivableEntries());
-    const storage=event=>{if(event.key===RECEIVABLE_STORAGE_KEY)setReceivableEntries(readReceivableEntries())};
-    window.addEventListener('oto-receivables-updated',sync);
-    window.addEventListener('storage',storage);
-    return()=>{
-      window.removeEventListener('oto-receivables-updated',sync);
-      window.removeEventListener('storage',storage);
-    };
-  },[]);
+    loadReceivables();
+    const channel=supabase.channel(`oto-receivables-${user?.id||'user'}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'receivable_entries'},()=>loadReceivables({silent:true}))
+      .subscribe();
+    return()=>{supabase.removeChannel(channel)};
+  },[user?.id]);
 
   const isReturnLog=log=>log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
   const returnedForLog=log=>logs
@@ -1085,22 +1105,43 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
       ||products.find(product=>String(log.product_name||'').startsWith(product.name));
   }
 
-  function saveReceivableEntry(entry){
-    setReceivableEntries(current=>{
-      const next=[...current,entry];
-      writeReceivableEntries(next);
-      return next;
-    });
+  async function saveReceivableEntry(entry){
+    const {data,error}=await supabase.from('receivable_entries').insert(entry).select('*').single();
+    if(error)throw error;
+    setReceivableEntries(current=>[normalizeReceivableRow(data),...current]);
     setReceivableModal(null);
   }
 
-  function deleteReceivableEntry(entry){
+  async function deleteReceivableEntry(entry){
     if(!window.confirm('이 미수금 내역을 삭제할까요?'))return;
-    setReceivableEntries(current=>{
-      const next=current.filter(item=>item.id!==entry.id);
-      writeReceivableEntries(next);
-      return next;
-    });
+    const {error}=await supabase.from('receivable_entries').delete().eq('id',entry.id);
+    if(error){alert('삭제 실패: '+normalizeError(error));return}
+    setReceivableEntries(current=>current.filter(item=>item.id!==entry.id));
+  }
+
+  async function migrateLegacyReceivables(){
+    const legacy=readLegacyReceivableEntries();
+    if(!legacy.length)return;
+    if(!window.confirm(`이 브라우저에 저장된 미수금·입금 ${legacy.length}건을 Supabase로 옮길까요?`))return;
+    const payload=legacy.map(entry=>({
+      customer_id:entry.customerId||entry.customer_id,
+      customer_name:entry.customerName||entry.customer_name||'',
+      entry_type:entry.type==='payment'?'payment':'charge',
+      amount:Number(entry.amount||0),
+      entry_date:entry.date||new Date().toLocaleDateString('en-CA'),
+      method:entry.method||'',
+      memo:entry.memo||null,
+      source:entry.source||'legacy_local',
+      created_by:user?.id||null,
+      created_at:entry.createdAt||new Date().toISOString()
+    })).filter(entry=>entry.customer_id&&entry.amount>0);
+    if(!payload.length){alert('옮길 수 있는 정상 자료가 없습니다.');return}
+    const {error}=await supabase.from('receivable_entries').insert(payload);
+    if(error){alert('자료 이전 실패: '+normalizeError(error));return}
+    localStorage.removeItem(RECEIVABLE_STORAGE_KEY);
+    setLegacyCount(0);
+    await loadReceivables();
+    alert(`${payload.length}건을 Supabase로 옮겼습니다.`);
   }
 
   const receivableBalanceByCustomer=useMemo(()=>{
@@ -1190,7 +1231,8 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   }
 
   return <section className="panel customer-panel">
-    <div className="toolbar"><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="거래처명, 받는 사람, 연락처 검색"/></div>{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>거래처 등록</button>}</div>
+    <div className="toolbar"><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="거래처명, 받는 사람, 연락처 검색"/></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button>{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>거래처 등록</button>}</div></div>
+    {receivableError&&<div className="error" style={{marginBottom:12}}>미수금 불러오기 실패: {receivableError}<br/><small>먼저 제공된 Supabase SQL을 실행했는지 확인하세요.</small></div>}
     <div className="customer-layout">
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
@@ -1211,7 +1253,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
     </div>
     {returnLog&&selected&&<ReturnFromLogModal log={returnLog} customer={selected} product={matchedProductForLog(returnLog)} alreadyReturned={returnedForLog(returnLog)} profile={profile} user={user} onClose={()=>setReturnLog(null)} onSaved={onReturnSaved}/>}
     {invoiceLogs&&selected&&<InvoiceModal customer={selected} products={products} logs={invoiceLogs} onClose={()=>setInvoiceLogs(null)}/>} 
-    {receivableModal&&selected&&<ReceivableModal customer={selected} mode={receivableModal} onClose={()=>setReceivableModal(null)} onSaved={saveReceivableEntry}/>}
+    {receivableModal&&selected&&<ReceivableModal customer={selected} mode={receivableModal} user={user} onClose={()=>setReceivableModal(null)} onSaved={saveReceivableEntry}/>}
   </section>;
 }
 
