@@ -874,14 +874,18 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
     customerLogs.forEach(log=>{
       const date=new Date(log.created_at).toLocaleDateString('en-CA');
       const returned=isReturnLog(log);
-      const order=String(log.order_number||'').trim();
-      const key=order?`${returned?'return':'out'}|${order}`:`${returned?'return':'out'}|${log.id}`;
-      if(!groups[key])groups[key]={key,date,order,returned,logs:[],total:0};
+      // 같은 거래처의 같은 날짜 출고 상품은 주문번호와 관계없이 한 명세표로 묶습니다.
+      // 반품은 출고와 합쳐지지 않도록 별도 그룹으로 유지합니다.
+      const key=`${returned?'return':'out'}|${date}`;
+      if(!groups[key])groups[key]={key,date,returned,logs:[],total:0,orders:new Set()};
       groups[key].logs.push(log);
       groups[key].total+=Number(log.quantity||0);
-      if(date<groups[key].date)groups[key].date=date;
+      const order=String(log.order_number||'').trim();
+      if(order)groups[key].orders.add(order);
     });
-    return Object.values(groups).sort((a,b)=>b.date.localeCompare(a.date));
+    return Object.values(groups)
+      .map(group=>({...group,orderNumbers:[...group.orders]}))
+      .sort((a,b)=>b.date.localeCompare(a.date));
   },[customerLogs]);
 
   function exportCustomerCsv(){
@@ -905,7 +909,7 @@ function Customers({customers,products,logs,isAdmin,onAdd,onEdit,onDelete}){
         {selected&&<><div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div>
           <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div></div>
           <div className="customer-history-summary"><div><small>거래 건수</small><strong>{transactionGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-1:1)*Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div></div>
-          <div className="daily-shipments">{transactionGroups.map(group=><article key={group.key} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.order?`주문번호 ${group.order}`:'주문번호 없음'}</small></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=><div key={log.id}><span>{group.returned?'[반품] ':''}{log.product_name}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b></div>)}</div></article>)}{!transactionGroups.length&&<Empty text="선택한 기간의 거래내역이 없습니다."/>}</div>
+          <div className="daily-shipments">{transactionGroups.map(group=><article key={group.key} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.orderNumbers.length?`주문번호 ${group.orderNumbers.join(', ')}`:'주문번호 없음'}</small></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=><div key={log.id}><span>{group.returned?'[반품] ':''}{log.product_name}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b></div>)}</div></article>)}{!transactionGroups.length&&<Empty text="선택한 기간의 거래내역이 없습니다."/>}</div>
         </>}
       </aside>
     </div>
