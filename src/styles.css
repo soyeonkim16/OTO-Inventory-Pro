@@ -957,3 +957,92 @@ nav button.active{
     min-height: 42px !important;
   }
 }
+/* =========================================================
+   거래처 상세 상단 버튼 크기 조정
+   - 미수금등록 / 입금처리 / 닫기 버튼
+   - 왼쪽 거래내역 버튼과 비슷한 크기로 맞춤
+   ========================================================= */
+
+/* 데스크탑 */
+.customer-history-inline .customer-history-head > div:last-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.customer-history-inline .customer-history-head > div:last-child button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  width: auto !important;
+  min-width: 0 !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 12px !important;
+
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+/* 미수금 등록 */
+.customer-history-inline .customer-history-head > div:last-child button:first-child {
+  background: #f26b0a !important;
+  border: 1px solid #f26b0a !important;
+  color: #fff !important;
+}
+
+/* 입금처리 */
+.customer-history-inline .customer-history-head > div:last-child button:nth-child(2) {
+  background: #1769e8 !important;
+  border: 1px solid #1769e8 !important;
+  color: #fff !important;
+}
+
+/* 닫기 버튼 */
+.customer-history-inline .customer-history-head > div:last-child button:last-child {
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+
+  background: #f2f4f7 !important;
+  border: 1px solid #e5e7eb !important;
+  color: #1769e8 !important;
+
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+/* 모바일은 기존처럼 조금 크게 유지 */
+@media screen and (max-width: 560px) {
+  .customer-history-inline .customer-history-head > div:last-child {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .customer-history-inline .customer-history-head > div:last-child button {
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 8px !important;
+    font-size: 14px !important;
+  }
+
+  .customer-history-inline .customer-history-head > div:last-child button:last-child {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}
