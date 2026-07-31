@@ -1541,3 +1541,17 @@ button.primary[type="submit"] {
   justify-content: center !important;
   text-align: center !important;
 }
+/* 로그인 버튼 글자 정확히 가운데 정렬 */
+.login form > button.primary.full {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+
+  width: 100% !important;
+  text-align: center !important;
+  text-indent: 0 !important;
+
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
