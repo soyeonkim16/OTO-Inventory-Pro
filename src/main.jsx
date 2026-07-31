@@ -7,70 +7,6 @@ import './styles.css';
 
 const APP_VERSION='6.5.2';
 
-// 거래명세표 화면 전용 상단 메뉴바
-// 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
-if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-editor-bar-style')){
-  const toolbarStyle=document.createElement('style');
-  toolbarStyle.id='oto-invoice-editor-bar-style';
-  toolbarStyle.textContent=`
-    .invoice-editor-bar{
-      display:grid!important;
-      grid-template-columns:210px minmax(0,1fr)!important;
-      align-items:stretch!important;
-      gap:18px!important;
-      position:-webkit-sticky!important;
-      position:sticky!important;
-      top:0!important;
-      transform:translateZ(0)!important;
-      -webkit-transform:translateZ(0)!important;
-      z-index:2147483000!important;
-      width:100%!important;
-      min-width:0!important;
-      min-height:118px!important;
-      margin:0!important;
-      padding:16px 18px!important;
-      box-sizing:border-box!important;
-      visibility:visible!important;
-      opacity:1!important;
-      overflow:visible!important;
-      background:#fff!important;
-      border-bottom:1px solid #e4e7ec!important;
-      box-shadow:0 8px 22px rgba(16,24,40,.08)!important;
-    }
-    .invoice-editor-bar,.invoice-editor-bar *{visibility:visible!important;opacity:1!important;}
-    .invoice-editor-bar .invoice-toolbar-title{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;padding-right:18px!important;border-right:1px solid #eaecf0!important;}
-    .invoice-editor-bar .invoice-toolbar-title b{font-size:18px!important;font-weight:800!important;color:#101828!important;}
-    .invoice-editor-bar .invoice-toolbar-title small{margin-top:5px!important;font-size:12px!important;line-height:1.45!important;color:#667085!important;}
-    .invoice-editor-bar .invoice-toolbar-actions{display:flex!important;align-items:stretch!important;flex-wrap:wrap!important;gap:9px!important;min-width:0!important;}
-    .invoice-editor-bar .invoice-toolbar-group{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:7px!important;padding:9px 10px!important;border:1px solid #e4e7ec!important;border-radius:11px!important;background:#f9fafb!important;}
-    .invoice-editor-bar .invoice-toolbar-group-title{font-size:11px!important;font-weight:700!important;color:#667085!important;}
-    .invoice-editor-bar .invoice-toolbar-buttons{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:nowrap!important;}
-    .invoice-editor-bar button,.invoice-editor-bar .price-type-control{display:inline-flex!important;align-items:center!important;justify-content:center!important;height:38px!important;min-height:38px!important;margin:0!important;padding:0 12px!important;border:1px solid #d0d5dd!important;border-radius:9px!important;background:#fff!important;color:#344054!important;font-size:12px!important;font-weight:700!important;white-space:nowrap!important;box-sizing:border-box!important;}
-    .invoice-editor-bar .price-type-control{gap:7px!important;}
-    .invoice-editor-bar .price-type-control select{height:30px!important;border:0!important;border-left:1px solid #eaecf0!important;padding:0 24px 0 8px!important;background:#fff!important;font-size:12px!important;font-weight:700!important;}
-    .invoice-editor-bar .invoice-print-button{background:#155eef!important;border-color:#155eef!important;color:#fff!important;}
-    .invoice-editor-bar .invoice-toolbar-final{margin-left:auto!important;background:#f5f8ff!important;border-color:#d6e4ff!important;}
-    .invoice-editor-bar .invoice-save-count{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:20px!important;height:20px!important;margin-left:3px!important;padding:0 6px!important;border-radius:999px!important;background:#eef4ff!important;color:#155eef!important;font-size:10px!important;}
-    @media(max-width:820px){
-      .invoice-editor-bar{display:block!important;padding:13px 12px!important;min-height:0!important;}
-      .invoice-editor-bar .invoice-toolbar-title{padding:0 0 11px!important;margin-bottom:11px!important;border-right:0!important;border-bottom:1px solid #eaecf0!important;}
-      .invoice-editor-bar .invoice-toolbar-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
-      .invoice-editor-bar .invoice-toolbar-final{margin-left:0!important;}
-      .invoice-editor-bar .invoice-toolbar-buttons{display:grid!important;grid-template-columns:1fr!important;width:100%!important;}
-      .invoice-editor-bar button,.invoice-editor-bar .price-type-control{width:100%!important;height:42px!important;min-height:42px!important;}
-    }
-    @media(max-width:520px){
-      .invoice-editor-bar .invoice-toolbar-actions{
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-        gap:7px!important;
-      }
-    }
-    @media print{.invoice-editor-bar{display:none!important;}}
-  `;
-  document.head.appendChild(toolbarStyle);
-}
-
-
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
   const style=document.createElement('style');
@@ -492,7 +428,8 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
       margin:0!important;
       padding:0!important;
       border-radius:0!important;
-      overflow:visible!important;
+      overflow-x:hidden!important;
+      overflow-y:visible!important;
       box-sizing:border-box!important;
     }
 
@@ -2966,130 +2903,120 @@ function InvoiceModal({customer,logs,products,onClose}){
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
     </section>
   }
- return (
-  <div
-    className="invoice-overlay"
-    onMouseDown={e => e.target === e.currentTarget && onClose()}
-  >
-    <div className="invoice-window">
+<div className="invoice-toolbar no-print">
 
-      {/* 거래명세표 상단 툴바 */}
- <div className="invoice-editor-bar">
+  {/* 제목 */}
+  <div className="invoice-toolbar-title">
+    <b>거래명세표 미리보기</b>
+    <small>
+      A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.
+    </small>
+  </div>
 
-        <div className="invoice-toolbar-title">
-          <b>거래명세표 미리보기</b>
+  {/* 전체 버튼 영역 */}
+  <div className="invoice-toolbar-actions">
 
-          <small>
-            A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.
-          </small>
-        </div>
+    {/* 단가 설정 */}
+    <div className="invoice-toolbar-group invoice-price-group">
+      <span className="invoice-toolbar-group-title">단가 설정</span>
 
-        <div className="invoice-toolbar-actions">
+      <label className="price-type-control">
+        <span>단가</span>
 
-          <div className="invoice-toolbar-group invoice-price-group">
-            <span className="invoice-toolbar-group-title">
-              단가 설정
-            </span>
+        <select
+          value={priceType}
+          onChange={e => applyPriceType(e.target.value)}
+        >
+          <option value="wholesale">도매가</option>
+          <option value="retail">소매가</option>
+        </select>
+      </label>
+    </div>
 
-            <label className="price-type-control">
-              <span>단가</span>
+    {/* 명세표 편집 */}
+    <div className="invoice-toolbar-group">
+      <span className="invoice-toolbar-group-title">명세표 편집</span>
 
-              <select
-                value={priceType}
-                onChange={e => applyPriceType(e.target.value)}
-              >
-                <option value="wholesale">도매가</option>
-                <option value="retail">소매가</option>
-              </select>
-            </label>
-          </div>
+      <div className="invoice-toolbar-buttons">
+        <button
+          type="button"
+          onClick={saveSupplier}
+        >
+          공급자 정보 저장
+        </button>
 
-          <div className="invoice-toolbar-group">
-            <span className="invoice-toolbar-group-title">
-              명세표 편집
-            </span>
+        <button
+          type="button"
+          onClick={addItem}
+        >
+          <Plus size={15} />
+          품목 추가
+        </button>
 
-            <div className="invoice-toolbar-buttons">
-              <button
-                type="button"
-                onClick={saveSupplier}
-              >
-                공급자 정보 저장
-              </button>
-
-              <button
-                type="button"
-                onClick={addItem}
-              >
-                <Plus size={15} />
-                품목 추가
-              </button>
-
-              <button
-                type="button"
-                onClick={saveCustomerPrices}
-                disabled={priceLoading}
-              >
-                {priceLoading
-                  ? '단가 불러오는 중'
-                  : '거래처 단가 저장'}
-              </button>
-            </div>
-          </div>
-
-          <div className="invoice-toolbar-group">
-            <span className="invoice-toolbar-group-title">
-              저장 관리
-            </span>
-
-            <div className="invoice-toolbar-buttons">
-              <button
-                type="button"
-                onClick={saveInvoice}
-              >
-                명세표 저장
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setArchiveOpen(v => !v)}
-              >
-                저장내역
-
-                <span className="invoice-save-count">
-                  {savedInvoices.length}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="invoice-toolbar-group invoice-toolbar-final">
-            <span className="invoice-toolbar-group-title">
-              출력
-            </span>
-
-            <div className="invoice-toolbar-buttons">
-              <button
-                type="button"
-                className="primary invoice-print-button"
-                onClick={() => window.print()}
-              >
-                <Printer size={16} />
-                인쇄 / PDF
-              </button>
-
-              <button
-                type="button"
-                className="invoice-close-button"
-                onClick={onClose}
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-
-        </div>
+        <button
+          type="button"
+          onClick={saveCustomerPrices}
+          disabled={priceLoading}
+        >
+          {priceLoading
+            ? '단가 불러오는 중'
+            : '거래처 단가 저장'}
+        </button>
       </div>
+    </div>
+
+    {/* 저장 관리 */}
+    <div className="invoice-toolbar-group">
+      <span className="invoice-toolbar-group-title">저장 관리</span>
+
+      <div className="invoice-toolbar-buttons">
+        <button
+          type="button"
+          onClick={saveInvoice}
+        >
+          명세표 저장
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setArchiveOpen(v => !v)}
+        >
+          저장내역
+          <span className="invoice-save-count">
+            {savedInvoices.length}
+          </span>
+        </button>
+      </div>
+    </div>
+
+    {/* 출력 및 닫기 */}
+    <div className="invoice-toolbar-group invoice-toolbar-final">
+      <span className="invoice-toolbar-group-title">출력</span>
+
+      <div className="invoice-toolbar-buttons">
+        <button
+          type="button"
+          className="primary invoice-print-button"
+          onClick={() => window.print()}
+        >
+          <Printer size={16} />
+          인쇄 / PDF
+        </button>
+
+        <button
+          type="button"
+          className="invoice-close-button"
+          onClick={onClose}
+        >
+          닫기
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+  return <div className="invoice-overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><div className="invoice-window">
+   
     {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button onClick={()=>{loadInvoice(invoice);setTimeout(()=>window.print(),80)}}><Printer size={14}/>재출력</button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
     <div
       className="invoice-preview-viewport"
@@ -3683,172 +3610,4 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v643-invoice-pri
     }
   }`;
   document.head.appendChild(invoicePrintStyle);
-}
-
-
-/* OTO 거래명세표 메뉴 최종 강제 고정 */
-if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-toolbar-final-fixed')){
-  const fixedToolbarStyle=document.createElement('style');
-  fixedToolbarStyle.id='oto-invoice-toolbar-final-fixed';
-  fixedToolbarStyle.textContent=`
-    /* 화면에서는 툴바를 브라우저 상단에 완전히 고정 */
-    @media screen {
-      .invoice-overlay{
-        position:fixed!important;
-        inset:0!important;
-        width:100%!important;
-        height:100dvh!important;
-        overflow-y:auto!important;
-        overflow-x:hidden!important;
-        padding:0!important;
-      }
-
-      .invoice-window{
-        position:relative!important;
-        width:100%!important;
-        max-width:none!important;
-        min-height:100dvh!important;
-        margin:0!important;
-        padding:148px 0 24px!important;
-        overflow:visible!important;
-        box-sizing:border-box!important;
-      }
-
-      .invoice-editor-bar{
-        display:grid!important;
-        grid-template-columns:210px minmax(0,1fr)!important;
-        align-items:stretch!important;
-        gap:18px!important;
-
-        position:fixed!important;
-        top:0!important;
-        left:0!important;
-        right:0!important;
-
-        width:100%!important;
-        min-width:0!important;
-        min-height:124px!important;
-        max-height:none!important;
-
-        margin:0!important;
-        padding:16px 18px!important;
-        box-sizing:border-box!important;
-
-        visibility:visible!important;
-        opacity:1!important;
-        overflow:visible!important;
-
-        background:#ffffff!important;
-        border-bottom:1px solid #dfe3e8!important;
-        box-shadow:0 8px 24px rgba(16,24,40,.14)!important;
-
-        z-index:2147483647!important;
-        transform:none!important;
-        -webkit-transform:none!important;
-      }
-
-      .invoice-editor-bar,
-      .invoice-editor-bar *{
-        visibility:visible!important;
-        opacity:1!important;
-        box-sizing:border-box!important;
-      }
-
-      .invoice-preview-viewport{
-        position:relative!important;
-        z-index:1!important;
-        margin-top:0!important;
-      }
-    }
-
-    @media screen and (max-width:820px){
-      .invoice-window{
-        padding-top:258px!important;
-      }
-
-      .invoice-editor-bar{
-        display:block!important;
-        min-height:0!important;
-        padding:
-          calc(12px + env(safe-area-inset-top,0px))
-          10px
-          12px!important;
-      }
-
-      .invoice-editor-bar .invoice-toolbar-title{
-        width:100%!important;
-        margin:0 0 10px!important;
-        padding:0 0 10px!important;
-        border-right:0!important;
-        border-bottom:1px solid #eaecf0!important;
-      }
-
-      .invoice-editor-bar .invoice-toolbar-actions{
-        display:grid!important;
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-        width:100%!important;
-        gap:7px!important;
-      }
-
-      .invoice-editor-bar .invoice-toolbar-group{
-        width:100%!important;
-        min-width:0!important;
-        margin:0!important;
-        padding:0!important;
-        border:0!important;
-        background:transparent!important;
-      }
-
-      .invoice-editor-bar .invoice-toolbar-group-title{
-        display:none!important;
-      }
-
-      .invoice-editor-bar .invoice-toolbar-buttons{
-        display:grid!important;
-        grid-template-columns:1fr!important;
-        width:100%!important;
-        gap:7px!important;
-      }
-
-      .invoice-editor-bar button,
-      .invoice-editor-bar .price-type-control{
-        width:100%!important;
-        min-width:0!important;
-        height:43px!important;
-        min-height:43px!important;
-        padding:0 7px!important;
-        font-size:12px!important;
-      }
-
-      .invoice-editor-bar .invoice-toolbar-final{
-        margin-left:0!important;
-      }
-    }
-
-    @media screen and (max-width:520px){
-      .invoice-window{
-        padding-top:254px!important;
-      }
-
-      .invoice-editor-bar .invoice-toolbar-actions{
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      }
-
-      .invoice-editor-bar button,
-      .invoice-editor-bar .price-type-control{
-        font-size:11px!important;
-      }
-    }
-
-    @media print{
-      .invoice-editor-bar{
-        display:none!important;
-      }
-
-      .invoice-window{
-        padding:0!important;
-      }
-    }
-  `;
-  document.head.appendChild(fixedToolbarStyle);
 }
