@@ -1584,8 +1584,10 @@ function Login(){
   return <div className="login"><form onSubmit={submit}>
     <img className="app-logo login-logo" src="/oto-app-logo.png" alt="OTO"/>
     <h1>OTO 재고관리</h1>
-    <p className="brand-sub">ORIGIN TIGRIS OBJECT</p>
-    <p>아이디와 비밀번호로 로그인하세요. 한 번 로그인하면 로그아웃하기 전까지 자동 로그인됩니다.</p>
+   <p className="login-guide">
+  <span>아이디와 비밀번호로 로그인하세요.</span>
+  <span>한 번 로그인하면 로그아웃하기 전까지 자동 로그인됩니다.</span>
+</p>
     <label>아이디
       <input
         type="text"
