@@ -18,8 +18,11 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-editor-b
       grid-template-columns:210px minmax(0,1fr)!important;
       align-items:stretch!important;
       gap:18px!important;
+      position:-webkit-sticky!important;
       position:sticky!important;
       top:0!important;
+      transform:translateZ(0)!important;
+      -webkit-transform:translateZ(0)!important;
       z-index:2147483000!important;
       width:100%!important;
       min-width:0!important;
@@ -56,7 +59,12 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-editor-b
       .invoice-editor-bar .invoice-toolbar-buttons{display:grid!important;grid-template-columns:1fr!important;width:100%!important;}
       .invoice-editor-bar button,.invoice-editor-bar .price-type-control{width:100%!important;height:42px!important;min-height:42px!important;}
     }
-    @media(max-width:520px){.invoice-editor-bar .invoice-toolbar-actions{grid-template-columns:1fr!important;}}
+    @media(max-width:520px){
+      .invoice-editor-bar .invoice-toolbar-actions{
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:7px!important;
+      }
+    }
     @media print{.invoice-editor-bar{display:none!important;}}
   `;
   document.head.appendChild(toolbarStyle);
@@ -484,8 +492,7 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
       margin:0!important;
       padding:0!important;
       border-radius:0!important;
-      overflow-x:hidden!important;
-      overflow-y:visible!important;
+      overflow:visible!important;
       box-sizing:border-box!important;
     }
 
@@ -2967,7 +2974,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     <div className="invoice-window">
 
       {/* 거래명세표 상단 툴바 */}
- <div className="invoice-toolbar">
+ <div className="invoice-editor-bar">
 
         <div className="invoice-toolbar-title">
           <b>거래명세표 미리보기</b>
