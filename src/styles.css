@@ -1071,3 +1071,268 @@ nav button.active{
     padding: 0 !important;
   }
 }
+/* =========================================================
+   거래처 관리 버튼 크기 전체 통일
+   거래내역 / 입금처리 / 수정 / 삭제
+   ========================================================= */
+
+/* 거래처 목록의 관리 버튼 영역 */
+.customer-list button,
+.customer-table button,
+.customer-row button,
+.customer-card button {
+  box-sizing: border-box !important;
+}
+
+/* 거래내역, 입금처리, 수정, 삭제 공통 */
+.customer-list .ghost,
+.customer-list .primary,
+.customer-list .danger,
+.customer-table .ghost,
+.customer-table .primary,
+.customer-table .danger,
+.customer-row .ghost,
+.customer-row .primary,
+.customer-row .danger,
+.customer-card .ghost,
+.customer-card .primary,
+.customer-card .danger {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  width: auto !important;
+  min-width: 58px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+
+  margin: 0 !important;
+  padding: 0 10px !important;
+
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+
+  box-shadow: none !important;
+}
+
+/* 거래내역 버튼 */
+.customer-list .ghost,
+.customer-table .ghost,
+.customer-row .ghost,
+.customer-card .ghost {
+  color: #111827 !important;
+  background: #ffffff !important;
+  border: 1px solid #dfe3e8 !important;
+}
+
+/* 입금처리 버튼 */
+.customer-list .primary,
+.customer-table .primary,
+.customer-row .primary,
+.customer-card .primary {
+  color: #ffffff !important;
+  background: #1769e8 !important;
+  border: 1px solid #1769e8 !important;
+}
+
+/* 수정 버튼 */
+.customer-list button:not(.ghost):not(.primary):not(.danger),
+.customer-table button:not(.ghost):not(.primary):not(.danger),
+.customer-row button:not(.ghost):not(.primary):not(.danger),
+.customer-card button:not(.ghost):not(.primary):not(.danger) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  width: auto !important;
+  min-width: 44px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+
+  margin: 0 !important;
+  padding: 0 10px !important;
+
+  color: #111827 !important;
+  background: #ffffff !important;
+  border: 1px solid #dfe3e8 !important;
+  border-radius: 8px !important;
+
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+/* 삭제 버튼 */
+.customer-list .danger,
+.customer-table .danger,
+.customer-row .danger,
+.customer-card .danger {
+  min-width: 44px !important;
+
+  color: #ef4444 !important;
+  background: #ffffff !important;
+  border: 1px solid #fca5a5 !important;
+}
+
+/* 거래처 상세 상단 버튼도 동일하게 */
+.customer-history-inline .customer-history-head > div:last-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+
+.customer-history-inline .customer-history-head > div:last-child button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  width: auto !important;
+  min-width: 58px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+
+  margin: 0 !important;
+  padding: 0 10px !important;
+
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+
+  box-shadow: none !important;
+}
+
+/* 상세 미수금 등록 */
+.customer-history-inline
+  .customer-history-head
+  > div:last-child
+  button:first-child {
+  color: #ffffff !important;
+  background: #f26b0a !important;
+  border: 1px solid #f26b0a !important;
+}
+
+/* 상세 입금처리 */
+.customer-history-inline
+  .customer-history-head
+  > div:last-child
+  button:nth-child(2) {
+  color: #ffffff !important;
+  background: #1769e8 !important;
+  border: 1px solid #1769e8 !important;
+}
+
+/* 상세 닫기 */
+.customer-history-inline
+  .customer-history-head
+  > div:last-child
+  button:last-child {
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+
+  color: #1769e8 !important;
+  background: #f2f4f7 !important;
+  border: 1px solid #e5e7eb !important;
+
+  font-size: 16px !important;
+}
+
+/* 버튼 간격 */
+.customer-list td:last-child,
+.customer-table td:last-child,
+.customer-row .actions,
+.customer-card .actions {
+  gap: 6px !important;
+}
+
+/* hover */
+.customer-list .ghost:hover,
+.customer-table .ghost:hover,
+.customer-row .ghost:hover,
+.customer-card .ghost:hover {
+  background: #f8fafc !important;
+}
+
+.customer-list .primary:hover,
+.customer-table .primary:hover,
+.customer-row .primary:hover,
+.customer-card .primary:hover {
+  background: #1259c3 !important;
+  border-color: #1259c3 !important;
+}
+
+.customer-list .danger:hover,
+.customer-table .danger:hover,
+.customer-row .danger:hover,
+.customer-card .danger:hover {
+  background: #fff5f5 !important;
+}
+
+/* 모바일 */
+@media screen and (max-width: 560px) {
+  .customer-list .ghost,
+  .customer-list .primary,
+  .customer-list .danger,
+  .customer-table .ghost,
+  .customer-table .primary,
+  .customer-table .danger,
+  .customer-row .ghost,
+  .customer-row .primary,
+  .customer-row .danger,
+  .customer-card .ghost,
+  .customer-card .primary,
+  .customer-card .danger,
+  .customer-list button:not(.ghost):not(.primary):not(.danger),
+  .customer-table button:not(.ghost):not(.primary):not(.danger),
+  .customer-row button:not(.ghost):not(.primary):not(.danger),
+  .customer-card button:not(.ghost):not(.primary):not(.danger) {
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+  }
+
+  .customer-history-inline .customer-history-head > div:last-child {
+    display: grid !important;
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(0, 1fr)
+      40px !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .customer-history-inline .customer-history-head > div:last-child button {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 8px !important;
+    font-size: 13px !important;
+  }
+
+  .customer-history-inline
+    .customer-history-head
+    > div:last-child
+    button:last-child {
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+}
