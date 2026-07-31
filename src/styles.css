@@ -1621,3 +1621,17 @@ button.primary[type="submit"] {
   align-items: center !important;
   justify-content: center !important;
 }
+<div className="customer-action-buttons">
+  <button>거래내역</button>
+  <button>입금처리</button>
+  <button>수정</button>
+  <button>삭제</button>
+</div>
+@media (max-width: 768px) {
+  .customer-action-buttons button {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    letter-spacing: -0.4px !important;
+  }
+}
