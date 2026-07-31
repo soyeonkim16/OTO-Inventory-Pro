@@ -3684,3 +3684,171 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v643-invoice-pri
   }`;
   document.head.appendChild(invoicePrintStyle);
 }
+
+
+/* OTO 거래명세표 메뉴 최종 강제 고정 */
+if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-toolbar-final-fixed')){
+  const fixedToolbarStyle=document.createElement('style');
+  fixedToolbarStyle.id='oto-invoice-toolbar-final-fixed';
+  fixedToolbarStyle.textContent=`
+    /* 화면에서는 툴바를 브라우저 상단에 완전히 고정 */
+    @media screen {
+      .invoice-overlay{
+        position:fixed!important;
+        inset:0!important;
+        width:100%!important;
+        height:100dvh!important;
+        overflow-y:auto!important;
+        overflow-x:hidden!important;
+        padding:0!important;
+      }
+
+      .invoice-window{
+        position:relative!important;
+        width:100%!important;
+        max-width:none!important;
+        min-height:100dvh!important;
+        margin:0!important;
+        padding:148px 0 24px!important;
+        overflow:visible!important;
+        box-sizing:border-box!important;
+      }
+
+      .invoice-editor-bar{
+        display:grid!important;
+        grid-template-columns:210px minmax(0,1fr)!important;
+        align-items:stretch!important;
+        gap:18px!important;
+
+        position:fixed!important;
+        top:0!important;
+        left:0!important;
+        right:0!important;
+
+        width:100%!important;
+        min-width:0!important;
+        min-height:124px!important;
+        max-height:none!important;
+
+        margin:0!important;
+        padding:16px 18px!important;
+        box-sizing:border-box!important;
+
+        visibility:visible!important;
+        opacity:1!important;
+        overflow:visible!important;
+
+        background:#ffffff!important;
+        border-bottom:1px solid #dfe3e8!important;
+        box-shadow:0 8px 24px rgba(16,24,40,.14)!important;
+
+        z-index:2147483647!important;
+        transform:none!important;
+        -webkit-transform:none!important;
+      }
+
+      .invoice-editor-bar,
+      .invoice-editor-bar *{
+        visibility:visible!important;
+        opacity:1!important;
+        box-sizing:border-box!important;
+      }
+
+      .invoice-preview-viewport{
+        position:relative!important;
+        z-index:1!important;
+        margin-top:0!important;
+      }
+    }
+
+    @media screen and (max-width:820px){
+      .invoice-window{
+        padding-top:258px!important;
+      }
+
+      .invoice-editor-bar{
+        display:block!important;
+        min-height:0!important;
+        padding:
+          calc(12px + env(safe-area-inset-top,0px))
+          10px
+          12px!important;
+      }
+
+      .invoice-editor-bar .invoice-toolbar-title{
+        width:100%!important;
+        margin:0 0 10px!important;
+        padding:0 0 10px!important;
+        border-right:0!important;
+        border-bottom:1px solid #eaecf0!important;
+      }
+
+      .invoice-editor-bar .invoice-toolbar-actions{
+        display:grid!important;
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        width:100%!important;
+        gap:7px!important;
+      }
+
+      .invoice-editor-bar .invoice-toolbar-group{
+        width:100%!important;
+        min-width:0!important;
+        margin:0!important;
+        padding:0!important;
+        border:0!important;
+        background:transparent!important;
+      }
+
+      .invoice-editor-bar .invoice-toolbar-group-title{
+        display:none!important;
+      }
+
+      .invoice-editor-bar .invoice-toolbar-buttons{
+        display:grid!important;
+        grid-template-columns:1fr!important;
+        width:100%!important;
+        gap:7px!important;
+      }
+
+      .invoice-editor-bar button,
+      .invoice-editor-bar .price-type-control{
+        width:100%!important;
+        min-width:0!important;
+        height:43px!important;
+        min-height:43px!important;
+        padding:0 7px!important;
+        font-size:12px!important;
+      }
+
+      .invoice-editor-bar .invoice-toolbar-final{
+        margin-left:0!important;
+      }
+    }
+
+    @media screen and (max-width:520px){
+      .invoice-window{
+        padding-top:254px!important;
+      }
+
+      .invoice-editor-bar .invoice-toolbar-actions{
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+      }
+
+      .invoice-editor-bar button,
+      .invoice-editor-bar .price-type-control{
+        font-size:11px!important;
+      }
+    }
+
+    @media print{
+      .invoice-editor-bar{
+        display:none!important;
+      }
+
+      .invoice-window{
+        padding:0!important;
+      }
+    }
+  `;
+  document.head.appendChild(fixedToolbarStyle);
+}
