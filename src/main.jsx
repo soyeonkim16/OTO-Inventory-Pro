@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.5.1';
+const APP_VERSION='6.5.2';
 
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
@@ -395,42 +395,111 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
 
   /* 모바일 거래명세표 A4 한 장 전체 미리보기 */
   .invoice-preview-viewport{
+    position:relative;
     width:100%;
     display:flex;
     justify-content:center;
     align-items:flex-start;
     box-sizing:border-box;
+    overflow:hidden;
   }
 
   @media screen and (max-width:768px){
+    .invoice-overlay{
+      position:fixed!important;
+      inset:0!important;
+      width:100vw!important;
+      max-width:100vw!important;
+      min-width:0!important;
+      margin:0!important;
+      padding:0!important;
+      overflow-x:hidden!important;
+      overflow-y:auto!important;
+      box-sizing:border-box!important;
+    }
+
     .invoice-window{
+      position:relative!important;
+      width:100vw!important;
+      max-width:100vw!important;
+      min-width:0!important;
+      min-height:100vh!important;
+      max-height:none!important;
+      margin:0!important;
+      padding:0!important;
+      border-radius:0!important;
+      overflow-x:hidden!important;
+      overflow-y:visible!important;
+      box-sizing:border-box!important;
+    }
+
+    .invoice-toolbar{
       width:100%!important;
       max-width:100%!important;
-      overflow-x:hidden!important;
+      min-width:0!important;
+      padding:16px 14px!important;
+      box-sizing:border-box!important;
+      overflow:hidden!important;
+    }
+
+    .invoice-toolbar>div{
+      width:100%!important;
+      max-width:100%!important;
+      min-width:0!important;
+      box-sizing:border-box!important;
+    }
+
+    .invoice-toolbar>div:last-child{
+      display:flex!important;
+      flex-wrap:wrap!important;
+      align-items:stretch!important;
+      gap:8px!important;
+    }
+
+    .invoice-toolbar button,
+    .invoice-toolbar .price-type-control{
+      min-width:0!important;
+      max-width:100%!important;
+    }
+
+    .invoice-archive{
+      width:calc(100% - 24px)!important;
+      max-width:calc(100% - 24px)!important;
+      min-width:0!important;
+      margin:12px!important;
+      box-sizing:border-box!important;
     }
 
     .invoice-preview-viewport{
-      position:relative;
-      width:100%;
-      height:var(--invoice-preview-height);
-      min-height:var(--invoice-preview-height);
-      overflow:hidden;
-      padding:0;
-      margin:16px auto 24px;
+      position:relative!important;
+      display:block!important;
+      width:100vw!important;
+      max-width:100vw!important;
+      min-width:0!important;
+      height:var(--invoice-preview-height)!important;
+      min-height:var(--invoice-preview-height)!important;
+      margin:16px 0 24px!important;
+      padding:0!important;
+      overflow:hidden!important;
+      box-sizing:border-box!important;
     }
 
     .invoice-preview-viewport .invoice-sheet.portrait-double{
       position:absolute!important;
-      top:0;
-      left:50%;
-      width:210mm!important;
-      min-width:210mm!important;
-      max-width:210mm!important;
-      height:297mm!important;
-      min-height:297mm!important;
-      transform:translateX(-50%) scale(var(--invoice-preview-scale));
-      transform-origin:top center!important;
+      top:0!important;
+      left:12px!important;
+      right:auto!important;
+      width:794px!important;
+      min-width:794px!important;
+      max-width:794px!important;
+      height:1123px!important;
+      min-height:1123px!important;
+      max-height:1123px!important;
       margin:0!important;
+      padding:0!important;
+      transform:scale(var(--invoice-preview-scale))!important;
+      transform-origin:top left!important;
+      box-sizing:border-box!important;
     }
   }
 
@@ -449,16 +518,22 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
       position:static!important;
       transform:none!important;
       width:210mm!important;
+      min-width:210mm!important;
+      max-width:210mm!important;
       height:297mm!important;
+      min-height:297mm!important;
+      max-height:297mm!important;
       margin:0!important;
+      padding:0!important;
     }
 
     @page{size:A4 portrait;margin:0!important;}
     html,body{width:210mm!important;height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;}
-    .invoice-overlay,.invoice-window{position:static!important;width:210mm!important;height:297mm!important;min-height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;}
+    .invoice-overlay,.invoice-window{position:static!important;width:210mm!important;min-width:210mm!important;max-width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;}
     .invoice-sheet.portrait-double{width:210mm!important;height:297mm!important;min-height:297mm!important;padding:0!important;margin:0!important;box-shadow:none!important;border:0!important;page-break-after:avoid!important;break-after:avoid-page!important;}
     .invoice-delete,.invoice-delete.no-print{display:none!important;visibility:hidden!important;}
     .statement-copy{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
   }`;
   document.head.appendChild(style);
 }
@@ -2473,25 +2548,32 @@ function InvoiceModal({customer,logs,products,onClose}){
 
   useEffect(()=>{
     function resizeInvoicePreview(){
-      if(!invoicePreviewRef.current)return;
+      if(typeof window==='undefined')return;
 
-      if(window.innerWidth>768){
+      const viewportWidth=Math.round(
+        window.visualViewport?.width||window.innerWidth||document.documentElement.clientWidth||0
+      );
+
+      if(viewportWidth>768){
         setInvoicePreviewScale(1);
         return;
       }
 
-      const availableWidth=Math.max(280,window.innerWidth-24);
-      const a4Width=794;
-      setInvoicePreviewScale(Math.min(1,availableWidth/a4Width));
+      const mobileSidePadding=24;
+      const availableWidth=Math.max(240,viewportWidth-mobileSidePadding);
+      const a4PreviewWidth=794;
+      setInvoicePreviewScale(Math.min(1,availableWidth/a4PreviewWidth));
     }
 
     resizeInvoicePreview();
     window.addEventListener('resize',resizeInvoicePreview);
     window.addEventListener('orientationchange',resizeInvoicePreview);
+    window.visualViewport?.addEventListener('resize',resizeInvoicePreview);
 
     return()=>{
       window.removeEventListener('resize',resizeInvoicePreview);
       window.removeEventListener('orientationchange',resizeInvoicePreview);
+      window.visualViewport?.removeEventListener('resize',resizeInvoicePreview);
     };
   },[]);
 
