@@ -2903,12 +2903,120 @@ function InvoiceModal({customer,logs,products,onClose}){
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
     </section>
   }
+<div className="invoice-toolbar no-print">
 
+  {/* 제목 */}
+  <div className="invoice-toolbar-title">
+    <b>거래명세표 미리보기</b>
+    <small>
+      A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.
+    </small>
+  </div>
+
+  {/* 전체 버튼 영역 */}
+  <div className="invoice-toolbar-actions">
+
+    {/* 단가 설정 */}
+    <div className="invoice-toolbar-group invoice-price-group">
+      <span className="invoice-toolbar-group-title">단가 설정</span>
+
+      <label className="price-type-control">
+        <span>단가</span>
+
+        <select
+          value={priceType}
+          onChange={e => applyPriceType(e.target.value)}
+        >
+          <option value="wholesale">도매가</option>
+          <option value="retail">소매가</option>
+        </select>
+      </label>
+    </div>
+
+    {/* 명세표 편집 */}
+    <div className="invoice-toolbar-group">
+      <span className="invoice-toolbar-group-title">명세표 편집</span>
+
+      <div className="invoice-toolbar-buttons">
+        <button
+          type="button"
+          onClick={saveSupplier}
+        >
+          공급자 정보 저장
+        </button>
+
+        <button
+          type="button"
+          onClick={addItem}
+        >
+          <Plus size={15} />
+          품목 추가
+        </button>
+
+        <button
+          type="button"
+          onClick={saveCustomerPrices}
+          disabled={priceLoading}
+        >
+          {priceLoading
+            ? '단가 불러오는 중'
+            : '거래처 단가 저장'}
+        </button>
+      </div>
+    </div>
+
+    {/* 저장 관리 */}
+    <div className="invoice-toolbar-group">
+      <span className="invoice-toolbar-group-title">저장 관리</span>
+
+      <div className="invoice-toolbar-buttons">
+        <button
+          type="button"
+          onClick={saveInvoice}
+        >
+          명세표 저장
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setArchiveOpen(v => !v)}
+        >
+          저장내역
+          <span className="invoice-save-count">
+            {savedInvoices.length}
+          </span>
+        </button>
+      </div>
+    </div>
+
+    {/* 출력 및 닫기 */}
+    <div className="invoice-toolbar-group invoice-toolbar-final">
+      <span className="invoice-toolbar-group-title">출력</span>
+
+      <div className="invoice-toolbar-buttons">
+        <button
+          type="button"
+          className="primary invoice-print-button"
+          onClick={() => window.print()}
+        >
+          <Printer size={16} />
+          인쇄 / PDF
+        </button>
+
+        <button
+          type="button"
+          className="invoice-close-button"
+          onClick={onClose}
+        >
+          닫기
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
   return <div className="invoice-overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><div className="invoice-window">
-    <div className="invoice-toolbar no-print"><div><b>거래명세표 미리보기</b><small>A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.</small></div><div>
-      <label className="price-type-control">단가 <select value={priceType} onChange={e=>applyPriceType(e.target.value)}><option value="wholesale">도매가</option><option value="retail">소매가</option></select></label>
-      <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveCustomerPrices} disabled={priceLoading}>{priceLoading?'단가 불러오는 중':'거래처 단가 저장'}</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
-    </div></div>
+   
     {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button onClick={()=>{loadInvoice(invoice);setTimeout(()=>window.print(),80)}}><Printer size={14}/>재출력</button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
     <div
       className="invoice-preview-viewport"
