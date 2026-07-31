@@ -393,7 +393,66 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .transaction-paid-badge{display:inline-flex!important;align-items:center!important;padding:3px 7px!important;border-radius:999px!important;font-size:11px!important;font-weight:700!important;background:#ecfdf3!important;color:#067647!important;}
   @media(max-width:620px){.selected-payment-bar{align-items:flex-start!important;flex-direction:column!important;}.selected-payment-bar button{width:100%!important;justify-content:center!important;}}
 
+  /* 모바일 거래명세표 A4 한 장 전체 미리보기 */
+  .invoice-preview-viewport{
+    width:100%;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    box-sizing:border-box;
+  }
+
+  @media screen and (max-width:768px){
+    .invoice-window{
+      width:100%!important;
+      max-width:100%!important;
+      overflow-x:hidden!important;
+    }
+
+    .invoice-preview-viewport{
+      position:relative;
+      width:100%;
+      height:var(--invoice-preview-height);
+      min-height:var(--invoice-preview-height);
+      overflow:hidden;
+      padding:0;
+      margin:16px auto 24px;
+    }
+
+    .invoice-preview-viewport .invoice-sheet.portrait-double{
+      position:absolute!important;
+      top:0;
+      left:50%;
+      width:210mm!important;
+      min-width:210mm!important;
+      max-width:210mm!important;
+      height:297mm!important;
+      min-height:297mm!important;
+      transform:translateX(-50%) scale(var(--invoice-preview-scale));
+      transform-origin:top center!important;
+      margin:0!important;
+    }
+  }
+
   @media print{
+    .invoice-preview-viewport{
+      display:block!important;
+      width:210mm!important;
+      height:297mm!important;
+      min-height:297mm!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:visible!important;
+    }
+
+    .invoice-preview-viewport .invoice-sheet.portrait-double{
+      position:static!important;
+      transform:none!important;
+      width:210mm!important;
+      height:297mm!important;
+      margin:0!important;
+    }
+
     @page{size:A4 portrait;margin:0!important;}
     html,body{width:210mm!important;height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;}
     .invoice-overlay,.invoice-window{position:static!important;width:210mm!important;height:297mm!important;min-height:297mm!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;}
@@ -2409,6 +2468,32 @@ function InvoiceModal({customer,logs,products,onClose}){
     invoiceCustomer.price_type||'wholesale'
   );
   const [archiveOpen,setArchiveOpen]=useState(false);
+  const invoicePreviewRef=useRef(null);
+  const [invoicePreviewScale,setInvoicePreviewScale]=useState(1);
+
+  useEffect(()=>{
+    function resizeInvoicePreview(){
+      if(!invoicePreviewRef.current)return;
+
+      if(window.innerWidth>768){
+        setInvoicePreviewScale(1);
+        return;
+      }
+
+      const availableWidth=Math.max(280,window.innerWidth-24);
+      const a4Width=794;
+      setInvoicePreviewScale(Math.min(1,availableWidth/a4Width));
+    }
+
+    resizeInvoicePreview();
+    window.addEventListener('resize',resizeInvoicePreview);
+    window.addEventListener('orientationchange',resizeInvoicePreview);
+
+    return()=>{
+      window.removeEventListener('resize',resizeInvoicePreview);
+      window.removeEventListener('orientationchange',resizeInvoicePreview);
+    };
+  },[]);
 
   const [savedInvoices,setSavedInvoices]=useState(()=>{
     try{
@@ -2741,7 +2826,19 @@ function InvoiceModal({customer,logs,products,onClose}){
       <button onClick={saveSupplier}>공급자 정보 저장</button><button onClick={addItem}>품목 추가</button><button onClick={saveCustomerPrices} disabled={priceLoading}>{priceLoading?'단가 불러오는 중':'거래처 단가 저장'}</button><button onClick={saveInvoice}>명세표 저장</button><button onClick={()=>setArchiveOpen(v=>!v)}>저장내역 ({savedInvoices.length})</button><button className="primary" onClick={()=>window.print()}><Printer size={17}/>인쇄 / PDF</button><button onClick={onClose}>닫기</button>
     </div></div>
     {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button onClick={()=>{loadInvoice(invoice);setTimeout(()=>window.print(),80)}}><Printer size={14}/>재출력</button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
-    <div className="invoice-sheet portrait-double">{renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}<div className="cut-line" aria-hidden="true"></div>{renderStatementCopy({copyLabel:'공급자 보관용'})}</div>
+    <div
+      className="invoice-preview-viewport"
+      style={{
+        '--invoice-preview-scale':invoicePreviewScale,
+        '--invoice-preview-height':`${1123*invoicePreviewScale}px`
+      }}
+    >
+      <div ref={invoicePreviewRef} className="invoice-sheet portrait-double">
+        {renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}
+        <div className="cut-line" aria-hidden="true"></div>
+        {renderStatementCopy({copyLabel:'공급자 보관용'})}
+      </div>
+    </div>
   </div></div>;
 }
 
