@@ -1534,3 +1534,10 @@ main section > div:has(input[placeholder*="검색"])
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+/* 로그인 화면의 파란 버튼 강제 가운데 정렬 */
+button.primary[type="submit"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
