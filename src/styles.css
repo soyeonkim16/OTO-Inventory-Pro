@@ -1606,32 +1606,65 @@ button.primary[type="submit"] {
     white-space: normal !important;
   }
 }
-/* 거래처 카드 하단 버튼 글씨 통일 */
-.customer-action-buttons button {
-  font-size: 16px !important;
-  font-weight: 700 !important;
-  line-height: 1 !important;
-  letter-spacing: -0.4px !important;
-  white-space: nowrap !important;
+/* =========================================================
+   모바일 거래처 카드 버튼 글씨 크기 완전 통일
+   거래내역 / 입금처리 / 수정 / 삭제
+   ========================================================= */
 
-  height: 48px !important;
-  padding: 0 14px !important;
+@media screen and (max-width: 700px) {
 
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-<div className="customer-action-buttons">
-  <button>거래내역</button>
-  <button>입금처리</button>
-  <button>수정</button>
-  <button>삭제</button>
-</div>
-@media (max-width: 768px) {
-  .customer-action-buttons button {
-    font-size: 16px !important;
+  .customer-mobile-list .customer-card-actions {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+    width: 100% !important;
+    margin-top: 12px !important;
+  }
+
+  .customer-mobile-list .customer-card-actions button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    width: auto !important;
+    min-width: 0 !important;
+    height: 42px !important;
+    min-height: 42px !important;
+
+    margin: 0 !important;
+    padding: 0 10px !important;
+
+    box-sizing: border-box !important;
+    border-radius: 9px !important;
+
+    font-family: Pretendard, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
     letter-spacing: -0.4px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  /* 거래내역 */
+  .customer-mobile-list .customer-card-actions button:nth-child(1) {
+    font-size: 15px !important;
+  }
+
+  /* 입금처리 */
+  .customer-mobile-list .customer-card-actions button:nth-child(2) {
+    font-size: 15px !important;
+  }
+
+  /* 수정 */
+  .customer-mobile-list .customer-card-actions button:nth-child(3) {
+    font-size: 15px !important;
+  }
+
+  /* 삭제 */
+  .customer-mobile-list .customer-card-actions button:nth-child(4),
+  .customer-mobile-list .customer-card-actions .danger-button {
+    font-size: 15px !important;
   }
 }
