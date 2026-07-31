@@ -1668,3 +1668,233 @@ button.primary[type="submit"] {
     font-size: 15px !important;
   }
 }
+/* =========================================================
+   거래명세표 미리보기 상단 툴바 예쁘게 정리
+   ========================================================= */
+
+/* 모달 전체 */
+.invoice-window{
+  width:min(1280px, calc(100% - 32px)) !important;
+  background:#f3f6fb !important;
+  border-radius:20px !important;
+  overflow:hidden !important;
+  box-shadow:0 24px 70px rgba(0,0,0,.22) !important;
+}
+
+/* 상단 툴바 */
+.invoice-toolbar{
+  position:sticky !important;
+  top:0 !important;
+  z-index:30 !important;
+
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:14px !important;
+
+  padding:18px 20px !important;
+  background:#ffffff !important;
+  border-bottom:1px solid #e5e7eb !important;
+  box-shadow:0 10px 24px rgba(17,24,39,.06) !important;
+}
+
+/* 왼쪽 제목 영역 */
+.invoice-toolbar > div:first-child{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:flex-start !important;
+  justify-content:flex-start !important;
+  gap:4px !important;
+
+  margin:0 !important;
+  padding:0 !important;
+  min-width:0 !important;
+
+  color:#111827 !important;
+  font-size:22px !important;
+  font-weight:800 !important;
+  line-height:1.2 !important;
+  letter-spacing:-0.03em !important;
+}
+
+.invoice-toolbar > div:first-child small{
+  display:block !important;
+  margin:0 !important;
+  padding:0 !important;
+
+  color:#667085 !important;
+  font-size:13px !important;
+  font-weight:500 !important;
+  line-height:1.45 !important;
+  letter-spacing:-0.01em !important;
+}
+
+/* 오른쪽 버튼/셀렉트 영역 */
+.invoice-toolbar > div:last-child{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  align-items:center !important;
+  gap:10px !important;
+
+  width:100% !important;
+  min-width:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+
+/* 공통 버튼/셀렉트 스타일 */
+.invoice-toolbar select,
+.invoice-toolbar button{
+  height:42px !important;
+  min-height:42px !important;
+  margin:0 !important;
+  padding:0 14px !important;
+
+  border:1px solid #d0d5dd !important;
+  border-radius:12px !important;
+  background:#ffffff !important;
+  box-sizing:border-box !important;
+  box-shadow:none !important;
+
+  color:#111827 !important;
+  font-size:14px !important;
+  font-weight:700 !important;
+  line-height:1 !important;
+  letter-spacing:-0.02em !important;
+  white-space:nowrap !important;
+}
+
+.invoice-toolbar select{
+  min-width:108px !important;
+  padding-right:36px !important;
+}
+
+.invoice-toolbar button{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+
+/* hover */
+.invoice-toolbar select:hover,
+.invoice-toolbar button:hover{
+  background:#f8fafc !important;
+  border-color:#b8c2cc !important;
+}
+
+/* 파란 강조 버튼(인쇄/PDF 등에 사용) */
+.invoice-toolbar .primary,
+.invoice-toolbar button.primary{
+  background:#1769e8 !important;
+  border-color:#1769e8 !important;
+  color:#ffffff !important;
+}
+
+.invoice-toolbar .primary:hover,
+.invoice-toolbar button.primary:hover{
+  background:#1259c3 !important;
+  border-color:#1259c3 !important;
+}
+
+/* 닫기 버튼이 일반 버튼이면 조금 덜 튀게 */
+.invoice-toolbar button:not(.primary){
+  background:#ffffff !important;
+}
+
+/* 내부 거래명세표와 상단 간격도 정리 */
+.invoice-sheet{
+  margin:18px auto 22px !important;
+}
+
+/* 저장내역 버튼 배지 느낌 */
+.invoice-toolbar button{
+  position:relative;
+}
+
+/* 태블릿 */
+@media screen and (max-width: 1100px){
+  .invoice-window{
+    width:min(100%, calc(100% - 20px)) !important;
+  }
+
+  .invoice-toolbar{
+    padding:16px !important;
+    gap:12px !important;
+  }
+
+  .invoice-toolbar > div:first-child{
+    font-size:20px !important;
+  }
+
+  .invoice-toolbar > div:last-child{
+    gap:8px !important;
+  }
+
+  .invoice-toolbar select,
+  .invoice-toolbar button{
+    height:40px !important;
+    min-height:40px !important;
+    font-size:13px !important;
+    padding:0 12px !important;
+  }
+}
+
+/* 모바일 */
+@media screen and (max-width: 760px){
+  .invoice-overlay{
+    padding:0 !important;
+  }
+
+  .invoice-window{
+    width:100% !important;
+    min-height:100vh !important;
+    border-radius:0 !important;
+  }
+
+  .invoice-toolbar{
+    position:sticky !important;
+    top:0 !important;
+    padding:14px 12px !important;
+    gap:12px !important;
+  }
+
+  .invoice-toolbar > div:first-child{
+    font-size:18px !important;
+  }
+
+  .invoice-toolbar > div:first-child small{
+    font-size:12px !important;
+  }
+
+  .invoice-toolbar > div:last-child{
+    display:grid !important;
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+    gap:8px !important;
+    width:100% !important;
+  }
+
+  .invoice-toolbar > div:last-child > *{
+    width:100% !important;
+    min-width:0 !important;
+  }
+
+  .invoice-toolbar select,
+  .invoice-toolbar button{
+    height:42px !important;
+    min-height:42px !important;
+    font-size:13px !important;
+    padding:0 10px !important;
+    border-radius:10px !important;
+  }
+
+  .invoice-sheet{
+    margin:10px !important;
+    width:1120px !important;
+  }
+}
+
+/* 아주 작은 휴대폰 */
+@media screen and (max-width: 420px){
+  .invoice-toolbar > div:last-child{
+    grid-template-columns:1fr !important;
+  }
+}
