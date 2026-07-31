@@ -534,6 +534,27 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
     .invoice-delete,.invoice-delete.no-print{display:none!important;visibility:hidden!important;}
     .statement-copy{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
+
+  /* 거래명세표 상단 툴바 화면 표시 강제 복구 */
+  @media screen{
+    .invoice-window>.invoice-screen-toolbar{
+      display:grid!important;
+      visibility:visible!important;
+      opacity:1!important;
+      position:sticky!important;
+      top:0!important;
+      z-index:999!important;
+      width:100%!important;
+      min-height:120px!important;
+      background:#fff!important;
+      box-sizing:border-box!important;
+    }
+    .invoice-window>.invoice-screen-toolbar *{
+      visibility:visible!important;
+      opacity:1!important;
+    }
+  }
+
   }`;
   document.head.appendChild(style);
 }
@@ -1084,69 +1105,6 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v642-ui-final'))
   }
   `;
   document.head.appendChild(finalUiStyle);
-}
-
-/* 거래명세표 상단 툴바 화면 표시 최종 보정 */
-if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-toolbar-screen-fix')){
-  const invoiceToolbarScreenFix=document.createElement('style');
-  invoiceToolbarScreenFix.id='oto-invoice-toolbar-screen-fix';
-  invoiceToolbarScreenFix.textContent=`
-  @media screen{
-    .invoice-window>.invoice-toolbar.no-print{
-      display:grid!important;
-      visibility:visible!important;
-      opacity:1!important;
-      position:sticky!important;
-      top:0!important;
-      z-index:1000!important;
-      grid-template-columns:210px minmax(0,1fr)!important;
-      align-items:stretch!important;
-      gap:18px!important;
-      width:100%!important;
-      min-height:118px!important;
-      padding:16px 18px!important;
-      box-sizing:border-box!important;
-      background:#fff!important;
-      border-bottom:1px solid #e4e7ec!important;
-      box-shadow:0 8px 22px rgba(16,24,40,.07)!important;
-      overflow:visible!important;
-    }
-    .invoice-window>.invoice-toolbar.no-print,
-    .invoice-window>.invoice-toolbar.no-print *{
-      visibility:visible!important;
-      opacity:1!important;
-    }
-    .invoice-toolbar-title{
-      display:flex!important;
-      flex-direction:column!important;
-      justify-content:center!important;
-      align-items:flex-start!important;
-      min-width:0!important;
-      padding-right:18px!important;
-      border-right:1px solid #eaecf0!important;
-    }
-    .invoice-toolbar-title b{font-size:18px!important;font-weight:800!important;color:#101828!important;}
-    .invoice-toolbar-title small{margin-top:6px!important;font-size:12px!important;line-height:1.45!important;color:#667085!important;}
-    .invoice-toolbar-actions{display:flex!important;align-items:stretch!important;flex-wrap:wrap!important;gap:9px!important;min-width:0!important;}
-    .invoice-toolbar-group{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:7px!important;padding:9px 11px!important;border:1px solid #e4e7ec!important;border-radius:11px!important;background:#f9fafb!important;}
-    .invoice-toolbar-group-title{font-size:11px!important;font-weight:700!important;color:#667085!important;}
-    .invoice-toolbar-buttons{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:nowrap!important;}
-    .invoice-toolbar-buttons button,.invoice-toolbar .price-type-control{height:38px!important;min-height:38px!important;border-radius:9px!important;}
-    .invoice-toolbar-buttons button{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;padding:0 12px!important;font-size:12px!important;white-space:nowrap!important;}
-    .invoice-toolbar-final{margin-left:auto!important;background:#f5f8ff!important;border-color:#d6e4ff!important;}
-    .invoice-save-count{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:20px!important;height:20px!important;padding:0 6px!important;border-radius:999px!important;background:#eef4ff!important;color:#155eef!important;font-size:10px!important;}
-    @media(max-width:820px){
-      .invoice-window>.invoice-toolbar.no-print{display:block!important;min-height:0!important;padding:14px 12px!important;}
-      .invoice-toolbar-title{padding:0 0 12px!important;margin-bottom:12px!important;border-right:0!important;border-bottom:1px solid #eaecf0!important;}
-      .invoice-toolbar-actions{display:grid!important;grid-template-columns:1fr 1fr!important;}
-      .invoice-toolbar-group{width:100%!important;min-width:0!important;}
-      .invoice-toolbar-buttons{display:grid!important;grid-template-columns:1fr!important;width:100%!important;}
-      .invoice-toolbar-buttons button,.invoice-toolbar .price-type-control{width:100%!important;height:42px!important;min-height:42px!important;}
-      .invoice-toolbar-final{margin-left:0!important;}
-    }
-    @media(max-width:520px){.invoice-toolbar-actions{grid-template-columns:1fr!important;}}
-  }`;
-  document.head.appendChild(invoiceToolbarScreenFix);
 }
 
 const SUPABASE_URL='https://asphxewwlaiskwmxopyt.supabase.co';
@@ -2966,7 +2924,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
     </section>
   }
-return (
+ return (
   <div
     className="invoice-overlay"
     onMouseDown={e => e.target === e.currentTarget && onClose()}
@@ -2974,7 +2932,7 @@ return (
     <div className="invoice-window">
 
       {/* 거래명세표 상단 툴바 */}
-      <div className="invoice-toolbar no-print">
+      <div className="invoice-toolbar invoice-screen-toolbar">
 
         <div className="invoice-toolbar-title">
           <b>거래명세표 미리보기</b>
