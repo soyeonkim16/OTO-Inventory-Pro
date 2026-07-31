@@ -7,33 +7,57 @@ import './styles.css';
 
 const APP_VERSION='6.5.2';
 
-// 거래명세표 편집 툴바는 화면에서 항상 표시하고 인쇄할 때만 숨깁니다.
-if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-screen-toolbar-fix')){
+// 거래명세표 화면 전용 상단 메뉴바
+// 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
+if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-editor-bar-style')){
   const toolbarStyle=document.createElement('style');
-  toolbarStyle.id='oto-invoice-screen-toolbar-fix';
+  toolbarStyle.id='oto-invoice-editor-bar-style';
   toolbarStyle.textContent=`
-    @media screen {
-      .invoice-window > .invoice-screen-toolbar {
-        display:grid!important;
-        visibility:visible!important;
-        opacity:1!important;
-        position:sticky!important;
-        top:0!important;
-        z-index:9999!important;
-        width:100%!important;
-        min-height:118px!important;
-        box-sizing:border-box!important;
-        background:#fff!important;
-      }
-      .invoice-window > .invoice-screen-toolbar,
-      .invoice-window > .invoice-screen-toolbar * {
-        visibility:visible!important;
-        opacity:1!important;
-      }
+    .invoice-editor-bar{
+      display:grid!important;
+      grid-template-columns:210px minmax(0,1fr)!important;
+      align-items:stretch!important;
+      gap:18px!important;
+      position:sticky!important;
+      top:0!important;
+      z-index:2147483000!important;
+      width:100%!important;
+      min-width:0!important;
+      min-height:118px!important;
+      margin:0!important;
+      padding:16px 18px!important;
+      box-sizing:border-box!important;
+      visibility:visible!important;
+      opacity:1!important;
+      overflow:visible!important;
+      background:#fff!important;
+      border-bottom:1px solid #e4e7ec!important;
+      box-shadow:0 8px 22px rgba(16,24,40,.08)!important;
     }
-    @media print {
-      .invoice-screen-toolbar {display:none!important;}
+    .invoice-editor-bar,.invoice-editor-bar *{visibility:visible!important;opacity:1!important;}
+    .invoice-editor-bar .invoice-toolbar-title{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;padding-right:18px!important;border-right:1px solid #eaecf0!important;}
+    .invoice-editor-bar .invoice-toolbar-title b{font-size:18px!important;font-weight:800!important;color:#101828!important;}
+    .invoice-editor-bar .invoice-toolbar-title small{margin-top:5px!important;font-size:12px!important;line-height:1.45!important;color:#667085!important;}
+    .invoice-editor-bar .invoice-toolbar-actions{display:flex!important;align-items:stretch!important;flex-wrap:wrap!important;gap:9px!important;min-width:0!important;}
+    .invoice-editor-bar .invoice-toolbar-group{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:7px!important;padding:9px 10px!important;border:1px solid #e4e7ec!important;border-radius:11px!important;background:#f9fafb!important;}
+    .invoice-editor-bar .invoice-toolbar-group-title{font-size:11px!important;font-weight:700!important;color:#667085!important;}
+    .invoice-editor-bar .invoice-toolbar-buttons{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:nowrap!important;}
+    .invoice-editor-bar button,.invoice-editor-bar .price-type-control{display:inline-flex!important;align-items:center!important;justify-content:center!important;height:38px!important;min-height:38px!important;margin:0!important;padding:0 12px!important;border:1px solid #d0d5dd!important;border-radius:9px!important;background:#fff!important;color:#344054!important;font-size:12px!important;font-weight:700!important;white-space:nowrap!important;box-sizing:border-box!important;}
+    .invoice-editor-bar .price-type-control{gap:7px!important;}
+    .invoice-editor-bar .price-type-control select{height:30px!important;border:0!important;border-left:1px solid #eaecf0!important;padding:0 24px 0 8px!important;background:#fff!important;font-size:12px!important;font-weight:700!important;}
+    .invoice-editor-bar .invoice-print-button{background:#155eef!important;border-color:#155eef!important;color:#fff!important;}
+    .invoice-editor-bar .invoice-toolbar-final{margin-left:auto!important;background:#f5f8ff!important;border-color:#d6e4ff!important;}
+    .invoice-editor-bar .invoice-save-count{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:20px!important;height:20px!important;margin-left:3px!important;padding:0 6px!important;border-radius:999px!important;background:#eef4ff!important;color:#155eef!important;font-size:10px!important;}
+    @media(max-width:820px){
+      .invoice-editor-bar{display:block!important;padding:13px 12px!important;min-height:0!important;}
+      .invoice-editor-bar .invoice-toolbar-title{padding:0 0 11px!important;margin-bottom:11px!important;border-right:0!important;border-bottom:1px solid #eaecf0!important;}
+      .invoice-editor-bar .invoice-toolbar-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;}
+      .invoice-editor-bar .invoice-toolbar-final{margin-left:0!important;}
+      .invoice-editor-bar .invoice-toolbar-buttons{display:grid!important;grid-template-columns:1fr!important;width:100%!important;}
+      .invoice-editor-bar button,.invoice-editor-bar .price-type-control{width:100%!important;height:42px!important;min-height:42px!important;}
     }
+    @media(max-width:520px){.invoice-editor-bar .invoice-toolbar-actions{grid-template-columns:1fr!important;}}
+    @media print{.invoice-editor-bar{display:none!important;}}
   `;
   document.head.appendChild(toolbarStyle);
 }
@@ -2943,7 +2967,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     <div className="invoice-window">
 
       {/* 거래명세표 상단 툴바 */}
-      <div className="invoice-toolbar invoice-screen-toolbar">
+      <div className="invoice-editor-bar">
 
         <div className="invoice-toolbar-title">
           <b>거래명세표 미리보기</b>
