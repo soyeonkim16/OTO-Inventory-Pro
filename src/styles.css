@@ -1520,3 +1520,17 @@ main section > div:has(input[placeholder*="검색"])
     max-width: 100% !important;
   }
 }
+/* 로그인 버튼 글자 가운데 정렬 */
+.login-card button[type="submit"],
+.login-form button[type="submit"],
+.auth-card button[type="submit"],
+.auth-form button[type="submit"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  text-align: center !important;
+  line-height: 1 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
