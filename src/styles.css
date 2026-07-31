@@ -1555,3 +1555,54 @@ button.primary[type="submit"] {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+/* =========================================================
+   로그인 화면 안내문 가운데 정렬 및 줄바꿈
+   ========================================================= */
+
+.login .login-guide {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+
+  width: 100% !important;
+  margin: 14px 0 18px !important;
+  padding: 0 !important;
+
+  color: #667085 !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  text-align: center !important;
+  word-break: keep-all !important;
+}
+
+.login .login-guide span {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+/* 로그인 버튼 글자 가운데 정렬 */
+.login form > button.primary.full {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  width: 100% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+
+  text-align: center !important;
+  text-indent: 0 !important;
+}
+
+/* 작은 휴대폰에서는 문장이 자연스럽게 줄바꿈 */
+@media screen and (max-width: 420px) {
+  .login .login-guide span {
+    white-space: normal !important;
+  }
+}
