@@ -7,6 +7,38 @@ import './styles.css';
 
 const APP_VERSION='6.5.2';
 
+// 거래명세표 편집 툴바는 화면에서 항상 표시하고 인쇄할 때만 숨깁니다.
+if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-screen-toolbar-fix')){
+  const toolbarStyle=document.createElement('style');
+  toolbarStyle.id='oto-invoice-screen-toolbar-fix';
+  toolbarStyle.textContent=`
+    @media screen {
+      .invoice-window > .invoice-screen-toolbar {
+        display:grid!important;
+        visibility:visible!important;
+        opacity:1!important;
+        position:sticky!important;
+        top:0!important;
+        z-index:9999!important;
+        width:100%!important;
+        min-height:118px!important;
+        box-sizing:border-box!important;
+        background:#fff!important;
+      }
+      .invoice-window > .invoice-screen-toolbar,
+      .invoice-window > .invoice-screen-toolbar * {
+        visibility:visible!important;
+        opacity:1!important;
+      }
+    }
+    @media print {
+      .invoice-screen-toolbar {display:none!important;}
+    }
+  `;
+  document.head.appendChild(toolbarStyle);
+}
+
+
 // 거래명세표 인쇄 시 편집용 X 버튼 숨김
 if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fix')){
   const style=document.createElement('style');
@@ -534,27 +566,6 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
     .invoice-delete,.invoice-delete.no-print{display:none!important;visibility:hidden!important;}
     .statement-copy{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
-
-  /* 거래명세표 상단 툴바 화면 표시 강제 복구 */
-  @media screen{
-    .invoice-window>.invoice-screen-toolbar{
-      display:grid!important;
-      visibility:visible!important;
-      opacity:1!important;
-      position:sticky!important;
-      top:0!important;
-      z-index:999!important;
-      width:100%!important;
-      min-height:120px!important;
-      background:#fff!important;
-      box-sizing:border-box!important;
-    }
-    .invoice-window>.invoice-screen-toolbar *{
-      visibility:visible!important;
-      opacity:1!important;
-    }
-  }
-
   }`;
   document.head.appendChild(style);
 }
