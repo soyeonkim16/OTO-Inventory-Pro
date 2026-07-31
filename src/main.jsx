@@ -2966,145 +2966,100 @@ function InvoiceModal({customer,logs,products,onClose}){
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
     </section>
   }
- return (
+ const invoiceToolbar=(
   <div
-    className="invoice-overlay"
-    onMouseDown={e => e.target === e.currentTarget && onClose()}
+    className="invoice-editor-bar invoice-editor-portal"
+    style={{
+      position:'fixed',
+      top:0,
+      left:0,
+      right:0,
+      width:'100%',
+      zIndex:2147483647,
+      background:'#fff'
+    }}
   >
-    <div className="invoice-window">
+    <div className="invoice-toolbar-title">
+      <b>거래명세표 미리보기</b>
+      <small>A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.</small>
+    </div>
 
-      {/* 거래명세표 상단 툴바 */}
- <div className="invoice-editor-bar">
+    <div className="invoice-toolbar-actions">
+      <div className="invoice-toolbar-group invoice-price-group">
+        <span className="invoice-toolbar-group-title">단가 설정</span>
+        <label className="price-type-control">
+          <span>단가</span>
+          <select value={priceType} onChange={e=>applyPriceType(e.target.value)}>
+            <option value="wholesale">도매가</option>
+            <option value="retail">소매가</option>
+          </select>
+        </label>
+      </div>
 
-        <div className="invoice-toolbar-title">
-          <b>거래명세표 미리보기</b>
-
-          <small>
-            A4 세로 한 장에 상·하 보관용이 함께 출력됩니다.
-          </small>
-        </div>
-
-        <div className="invoice-toolbar-actions">
-
-          <div className="invoice-toolbar-group invoice-price-group">
-            <span className="invoice-toolbar-group-title">
-              단가 설정
-            </span>
-
-            <label className="price-type-control">
-              <span>단가</span>
-
-              <select
-                value={priceType}
-                onChange={e => applyPriceType(e.target.value)}
-              >
-                <option value="wholesale">도매가</option>
-                <option value="retail">소매가</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="invoice-toolbar-group">
-            <span className="invoice-toolbar-group-title">
-              명세표 편집
-            </span>
-
-            <div className="invoice-toolbar-buttons">
-              <button
-                type="button"
-                onClick={saveSupplier}
-              >
-                공급자 정보 저장
-              </button>
-
-              <button
-                type="button"
-                onClick={addItem}
-              >
-                <Plus size={15} />
-                품목 추가
-              </button>
-
-              <button
-                type="button"
-                onClick={saveCustomerPrices}
-                disabled={priceLoading}
-              >
-                {priceLoading
-                  ? '단가 불러오는 중'
-                  : '거래처 단가 저장'}
-              </button>
-            </div>
-          </div>
-
-          <div className="invoice-toolbar-group">
-            <span className="invoice-toolbar-group-title">
-              저장 관리
-            </span>
-
-            <div className="invoice-toolbar-buttons">
-              <button
-                type="button"
-                onClick={saveInvoice}
-              >
-                명세표 저장
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setArchiveOpen(v => !v)}
-              >
-                저장내역
-
-                <span className="invoice-save-count">
-                  {savedInvoices.length}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="invoice-toolbar-group invoice-toolbar-final">
-            <span className="invoice-toolbar-group-title">
-              출력
-            </span>
-
-            <div className="invoice-toolbar-buttons">
-              <button
-                type="button"
-                className="primary invoice-print-button"
-                onClick={() => window.print()}
-              >
-                <Printer size={16} />
-                인쇄 / PDF
-              </button>
-
-              <button
-                type="button"
-                className="invoice-close-button"
-                onClick={onClose}
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-
+      <div className="invoice-toolbar-group">
+        <span className="invoice-toolbar-group-title">명세표 편집</span>
+        <div className="invoice-toolbar-buttons">
+          <button type="button" onClick={saveSupplier}>공급자 정보 저장</button>
+          <button type="button" onClick={addItem}><Plus size={15}/>품목 추가</button>
+          <button type="button" onClick={saveCustomerPrices} disabled={priceLoading}>
+            {priceLoading?'단가 불러오는 중':'거래처 단가 저장'}
+          </button>
         </div>
       </div>
-    {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button onClick={()=>{loadInvoice(invoice);setTimeout(()=>window.print(),80)}}><Printer size={14}/>재출력</button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
-    <div
-      className="invoice-preview-viewport"
-      style={{
-        '--invoice-preview-scale':invoicePreviewScale,
-        '--invoice-preview-height':`${1123*invoicePreviewScale}px`
-      }}
-    >
-      <div ref={invoicePreviewRef} className="invoice-sheet portrait-double">
-        {renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}
-        <div className="cut-line" aria-hidden="true"></div>
-        {renderStatementCopy({copyLabel:'공급자 보관용'})}
+
+      <div className="invoice-toolbar-group">
+        <span className="invoice-toolbar-group-title">저장 관리</span>
+        <div className="invoice-toolbar-buttons">
+          <button type="button" onClick={saveInvoice}>명세표 저장</button>
+          <button type="button" onClick={()=>setArchiveOpen(v=>!v)}>
+            저장내역 <span className="invoice-save-count">{savedInvoices.length}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="invoice-toolbar-group invoice-toolbar-final">
+        <span className="invoice-toolbar-group-title">출력</span>
+        <div className="invoice-toolbar-buttons">
+          <button type="button" className="primary invoice-print-button" onClick={()=>window.print()}>
+            <Printer size={16}/>인쇄 / PDF
+          </button>
+          <button type="button" className="invoice-close-button" onClick={onClose}>닫기</button>
+        </div>
       </div>
     </div>
-  </div></div>;
+  </div>
+ );
+
+ const invoiceContent=(
+  <div className="invoice-overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="invoice-window">
+      <div className="invoice-toolbar-spacer" aria-hidden="true"></div>
+
+      {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button onClick={()=>{loadInvoice(invoice);setTimeout(()=>window.print(),80)}}><Printer size={14}/>재출력</button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
+
+      <div
+        className="invoice-preview-viewport"
+        style={{
+          '--invoice-preview-scale':invoicePreviewScale,
+          '--invoice-preview-height':`${1123*invoicePreviewScale}px`
+        }}
+      >
+        <div ref={invoicePreviewRef} className="invoice-sheet portrait-double">
+          {renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}
+          <div className="cut-line" aria-hidden="true"></div>
+          {renderStatementCopy({copyLabel:'공급자 보관용'})}
+        </div>
+      </div>
+    </div>
+  </div>
+ );
+
+ return (
+  <>
+    {typeof document!=='undefined'?createPortal(invoiceToolbar,document.body):invoiceToolbar}
+    {typeof document!=='undefined'?createPortal(invoiceContent,document.body):invoiceContent}
+  </>
+ );
 }
 
 function EmployeeManagement({session,currentUserId}){
@@ -3851,4 +3806,52 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-toolbar-
     }
   `;
   document.head.appendChild(fixedToolbarStyle);
+}
+
+/* OTO 거래명세표 포털 툴바 */
+if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-portal-toolbar-style')){
+  const portalToolbarStyle=document.createElement('style');
+  portalToolbarStyle.id='oto-invoice-portal-toolbar-style';
+  portalToolbarStyle.textContent=`
+    @media screen{
+      .invoice-editor-portal{
+        position:fixed!important;
+        top:0!important;
+        left:0!important;
+        right:0!important;
+        width:100%!important;
+        display:grid!important;
+        z-index:2147483647!important;
+        visibility:visible!important;
+        opacity:1!important;
+        pointer-events:auto!important;
+        background:#fff!important;
+      }
+      .invoice-toolbar-spacer{
+        display:block!important;
+        width:100%!important;
+        height:142px!important;
+        flex:0 0 142px!important;
+      }
+    }
+    @media screen and (max-width:820px){
+      .invoice-toolbar-spacer{
+        height:258px!important;
+        flex-basis:258px!important;
+      }
+    }
+    @media screen and (max-width:520px){
+      .invoice-toolbar-spacer{
+        height:254px!important;
+        flex-basis:254px!important;
+      }
+    }
+    @media print{
+      .invoice-editor-portal,
+      .invoice-toolbar-spacer{
+        display:none!important;
+      }
+    }
+  `;
+  document.head.appendChild(portalToolbarStyle);
 }
