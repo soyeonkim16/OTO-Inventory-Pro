@@ -1606,3 +1606,18 @@ button.primary[type="submit"] {
     white-space: normal !important;
   }
 }
+/* 거래처 카드 하단 버튼 글씨 통일 */
+.customer-action-buttons button {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: -0.4px !important;
+  white-space: nowrap !important;
+
+  height: 48px !important;
+  padding: 0 14px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
