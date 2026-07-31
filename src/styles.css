@@ -1336,3 +1336,187 @@ nav button.active{
     min-height: 40px !important;
   }
 }
+/* =========================================================
+   재고 / 입출고 / 거래처 / 매출 / 직원관리
+   탭 전환 시 검색영역 위치·크기 완전 통일
+   ========================================================= */
+
+/* 각 탭 상단 검색/필터 영역 공통 */
+.inventory-toolbar,
+.stock-toolbar,
+.transaction-toolbar,
+.customer-toolbar,
+.sales-toolbar,
+.employee-toolbar,
+.search-toolbar,
+.filter-toolbar,
+.page-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+
+  width: 100% !important;
+  min-height: 62px !important;
+
+  margin: 0 !important;
+  padding: 12px 16px !important;
+
+  box-sizing: border-box !important;
+  border-top: 0 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+}
+
+/* 검색창을 감싸는 영역 */
+.inventory-toolbar > div:first-child,
+.stock-toolbar > div:first-child,
+.transaction-toolbar > div:first-child,
+.customer-toolbar > div:first-child,
+.sales-toolbar > div:first-child,
+.employee-toolbar > div:first-child,
+.search-toolbar > div:first-child,
+.filter-toolbar > div:first-child,
+.page-toolbar > div:first-child {
+  width: 354px !important;
+  min-width: 354px !important;
+  max-width: 354px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  box-sizing: border-box !important;
+}
+
+/* 검색창 자체 */
+.inventory-toolbar input[type="search"],
+.inventory-toolbar input[type="text"],
+.stock-toolbar input[type="search"],
+.stock-toolbar input[type="text"],
+.transaction-toolbar input[type="search"],
+.transaction-toolbar input[type="text"],
+.customer-toolbar input[type="search"],
+.customer-toolbar input[type="text"],
+.sales-toolbar input[type="search"],
+.sales-toolbar input[type="text"],
+.employee-toolbar input[type="search"],
+.employee-toolbar input[type="text"],
+.search-toolbar input[type="search"],
+.search-toolbar input[type="text"],
+.filter-toolbar input[type="search"],
+.filter-toolbar input[type="text"],
+.page-toolbar input[type="search"],
+.page-toolbar input[type="text"] {
+  display: block !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+
+  height: 38px !important;
+  min-height: 38px !important;
+
+  margin: 0 !important;
+  padding: 0 14px 0 40px !important;
+
+  box-sizing: border-box !important;
+  border: 1px solid #dfe3e8 !important;
+  border-radius: 8px !important;
+
+  font-size: 13px !important;
+  line-height: 1 !important;
+}
+
+/* 검색 아이콘 포함된 래퍼 */
+.inventory-toolbar .search-box,
+.stock-toolbar .search-box,
+.transaction-toolbar .search-box,
+.customer-toolbar .search-box,
+.sales-toolbar .search-box,
+.employee-toolbar .search-box,
+.search-toolbar .search-box,
+.filter-toolbar .search-box,
+.page-toolbar .search-box {
+  position: relative !important;
+
+  width: 354px !important;
+  min-width: 354px !important;
+  max-width: 354px !important;
+
+  height: 38px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  box-sizing: border-box !important;
+}
+
+/* 실제 앱에서 toolbar 클래스가 다를 경우를 위한 공통 보정 */
+main section > div:has(input[placeholder*="검색"]) {
+  min-height: 62px !important;
+  padding: 12px 16px !important;
+  box-sizing: border-box !important;
+}
+
+main section > div:has(input[placeholder*="검색"])
+  input[placeholder*="검색"] {
+  width: 354px !important;
+  min-width: 354px !important;
+  max-width: 354px !important;
+
+  height: 38px !important;
+  min-height: 38px !important;
+
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* 모바일 */
+@media screen and (max-width: 560px) {
+  .inventory-toolbar,
+  .stock-toolbar,
+  .transaction-toolbar,
+  .customer-toolbar,
+  .sales-toolbar,
+  .employee-toolbar,
+  .search-toolbar,
+  .filter-toolbar,
+  .page-toolbar {
+    min-height: auto !important;
+    padding: 12px !important;
+  }
+
+  .inventory-toolbar > div:first-child,
+  .stock-toolbar > div:first-child,
+  .transaction-toolbar > div:first-child,
+  .customer-toolbar > div:first-child,
+  .sales-toolbar > div:first-child,
+  .employee-toolbar > div:first-child,
+  .search-toolbar > div:first-child,
+  .filter-toolbar > div:first-child,
+  .page-toolbar > div:first-child,
+  .inventory-toolbar .search-box,
+  .stock-toolbar .search-box,
+  .transaction-toolbar .search-box,
+  .customer-toolbar .search-box,
+  .sales-toolbar .search-box,
+  .employee-toolbar .search-box,
+  .search-toolbar .search-box,
+  .filter-toolbar .search-box,
+  .page-toolbar .search-box {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  main section > div:has(input[placeholder*="검색"]) {
+    min-height: auto !important;
+    padding: 12px !important;
+  }
+
+  main section > div:has(input[placeholder*="검색"])
+    input[placeholder*="검색"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+}
