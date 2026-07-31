@@ -2967,7 +2967,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     <div className="invoice-window">
 
       {/* 거래명세표 상단 툴바 */}
-      <div className="invoice-editor-bar">
+ <div className="invoice-toolbar">
 
         <div className="invoice-toolbar-title">
           <b>거래명세표 미리보기</b>
