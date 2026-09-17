@@ -1249,6 +1249,7 @@ function App(){
   const [customers,setCustomers]=useState([]);
   const [tab,setTab]=useState('inventory');
   const [query,setQuery]=useState('');
+  const [inventorySort,setInventorySort]=useState({key:'name',direction:'asc'});
   const [productModal,setProductModal]=useState(null);
   const [moveModal,setMoveModal]=useState(null);
   const [customerModal,setCustomerModal]=useState(null);
@@ -1542,7 +1543,38 @@ function App(){
 
   const isAdmin=profile?.role==='admin';
   const today=new Date().toLocaleDateString('en-CA');
-  const filtered=products.filter(p=>[p.name,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()));
+  const filtered=products
+    .filter(p=>[p.name,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()))
+    .sort((a,b)=>{
+      const {key,direction}=inventorySort;
+      const dir=direction==='asc'?1:-1;
+      const numericKeys=['wholesale_price','vip_price','vvip_price','retail_price','quantity'];
+      let av,bv;
+      if(key==='status'){
+        av=Number(a.quantity)<=Number(a.minimum_quantity)?0:1;
+        bv=Number(b.quantity)<=Number(b.minimum_quantity)?0:1;
+      }else if(numericKeys.includes(key)){
+        av=Number(a[key]||0); bv=Number(b[key]||0);
+      }else{
+        av=String(a[key]||''); bv=String(b[key]||'');
+      }
+      if(typeof av==='number'&&typeof bv==='number'){
+        if(av===bv)return String(a.name||'').localeCompare(String(b.name||''),'ko');
+        return (av-bv)*dir;
+      }
+      const compared=av.localeCompare(bv,'ko',{numeric:true,sensitivity:'base'});
+      return compared*dir;
+    });
+
+  function changeInventorySort(key){
+    setInventorySort(current=>current.key===key
+      ?{key,direction:current.direction==='asc'?'desc':'asc'}
+      :{key,direction:'asc'});
+  }
+  function sortMark(key){
+    return inventorySort.key===key?(inventorySort.direction==='asc'?' ↑':' ↓'):' ↕';
+  }
+  const SortHead=({sortKey,children})=><th><button type="button" onClick={()=>changeInventorySort(sortKey)} title={`${children} 정렬`} style={{appearance:'none',border:0,background:'transparent',padding:0,font:'inherit',fontWeight:'inherit',color:'inherit',cursor:'pointer',whiteSpace:'nowrap'}}>{children}<span style={{fontSize:11,marginLeft:3,color:inventorySort.key===sortKey?'#2563eb':'#98a2b3'}}>{sortMark(sortKey)}</span></button></th>;
 
   return <div className="app">
     <header>
@@ -1589,7 +1621,7 @@ function App(){
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>도매가</th><th>도매가(VIP)</th><th>도매가(VVIP)</th><th>소매가</th><th>재고</th><th>상태</th><th></th></tr></thead>
+              <thead><tr><SortHead sortKey="name">상품</SortHead><SortHead sortKey="size">사이즈</SortHead><SortHead sortKey="color">색상</SortHead><SortHead sortKey="wholesale_price">도매가</SortHead><SortHead sortKey="vip_price">도매가(VIP)</SortHead><SortHead sortKey="vvip_price">도매가(VVIP)</SortHead><SortHead sortKey="retail_price">소매가</SortHead><SortHead sortKey="quantity">재고</SortHead><SortHead sortKey="status">상태</SortHead><th></th></tr></thead>
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
                   <td data-label="상품"><div className="product-cell">
