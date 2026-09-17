@@ -1519,20 +1519,20 @@ function App(){
       movement_date:movement.movement_date||new Date().toLocaleDateString('en-CA'),
       created_at:new Date().toISOString()
     },...current]);
-    setMoveModal(null);
+    if(!movement.keepModal)setMoveModal(null);
     setTimeout(()=>loadAll({silent:true}),500);
   }
 
   async function updateStockLogDate(log,newDate){
-    if(profile?.role!=='admin')return;
-    if(!log?.id||String(log.id).startsWith('temp-')||!newDate)return;
-    const previous=stockLogDate(log);
-    setLogs(current=>current.map(item=>item.id===log.id?{...item,movement_date:newDate}:item));
+    if(profile?.role!=='admin')return false;
+    if(!log?.id||String(log.id).startsWith('temp-')||!newDate)return false;
     const {error}=await supabase.from('stock_logs').update({movement_date:newDate}).eq('id',log.id);
     if(error){
-      setLogs(current=>current.map(item=>item.id===log.id?{...item,movement_date:previous}:item));
-      window.alert('처리일 수정에 실패했습니다: '+normalizeError(error));
+      window.alert('출고일 수정에 실패했습니다: '+normalizeError(error));
+      return false;
     }
+    setLogs(current=>current.map(item=>item.id===log.id?{...item,movement_date:newDate}:item));
+    return true;
   }
 
   const isAdmin=profile?.role==='admin';
@@ -1620,7 +1620,14 @@ function App(){
     </main>
 
     {productModal&&<ProductModal value={productModal} onClose={()=>setProductModal(null)} onSaved={()=>{setProductModal(null);loadAll()}}/>}
-    {moveModal&&<MoveModal
+    {moveModal==='__batch__'?<BatchMoveModal
+      products={products}
+      customers={customers}
+      profile={profile}
+      user={session.user}
+      onClose={()=>setMoveModal(null)}
+      onSaved={applyMovementSaved}
+    />:moveModal&&<MoveModal
       product={moveModal}
       customers={customers}
       profile={profile}
@@ -1981,6 +1988,51 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
       <button className="primary full" disabled={saving}>{saving?'처리 중…':form.type==='return'?'반품 처리':'처리'}</button>
     </form>
   </Modal>;
+}
+
+
+function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
+  const today=new Date().toLocaleDateString('en-CA');
+  const [form,setForm]=useState({type:'out',movement_date:today,customer_id:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',tracking:'',order:'',memo:'',payment_status:'paid'});
+  const [items,setItems]=useState([{product_id:'',qty:1}]);
+  const [error,setError]=useState('');
+  const [saving,setSaving]=useState(false);
+  const customer=customers.find(c=>String(c.id)===String(form.customer_id));
+  function pickCustomer(id){const c=customers.find(x=>String(x.id)===String(id));setForm({...form,customer_id:id,recipient_name:c?.recipient_name||'',phone:c?.phone||'',postal_code:c?.postal_code||'',address:c?.address||'',address_detail:c?.address_detail||'',courier:c?.courier||''});}
+  function updateItem(i,key,value){setItems(cur=>cur.map((x,n)=>n===i?{...x,[key]:value}:x));}
+  function addItem(){setItems(cur=>[...cur,{product_id:'',qty:1}]);}
+  function removeItem(i){setItems(cur=>cur.length===1?cur:cur.filter((_,n)=>n!==i));}
+  const totalAmount=items.reduce((sum,item)=>{const p=products.find(x=>String(x.id)===String(item.product_id));return sum+productPriceByType(p,customer?.price_type)*Number(item.qty||0)},0);
+  async function save(e){
+    e.preventDefault(); if(saving)return;
+    const valid=items.filter(x=>x.product_id&&Number(x.qty)>0);
+    if(!valid.length){setError('상품을 1개 이상 선택하세요.');return}
+    if((form.type==='out'||form.type==='return')&&!form.customer_id){setError(form.type==='return'?'반품 거래처를 선택하세요.':'출고 거래처를 선택하세요.');return}
+    for(const item of valid){const p=products.find(x=>String(x.id)===String(item.product_id));if(form.type==='out'&&Number(item.qty)>Number(p?.quantity||0)){setError(`${p?.name||'상품'}의 현재 재고보다 많이 출고할 수 없습니다.`);return}}
+    setSaving(true);setError('');
+    try{
+      const batchToken=`BATCH-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+      for(const item of valid){
+        const p=products.find(x=>String(x.id)===String(item.product_id));
+        const isReturn=form.type==='return';
+        const storedMemo=isReturn?`[반품]${form.order?` 원주문번호: ${form.order}`:''}${form.memo?` / 사유: ${form.memo}`:''} [${batchToken}]`:[form.memo,`[${batchToken}]`].filter(Boolean).join(' ');
+        const {error:rpcError}=await supabase.rpc('process_stock_movement',{p_product_id:p.id,p_type:isReturn?'in':form.type,p_quantity:Number(item.qty),p_user_id:user.id,p_staff_name:profile.name,p_customer_id:form.customer_id||null,p_customer_name:customer?.name||null,p_recipient_name:form.recipient_name||null,p_destination:form.address||null,p_destination_postal_code:form.postal_code||null,p_destination_detail:form.address_detail||null,p_recipient_phone:form.phone||null,p_courier:form.courier||null,p_tracking_number:form.tracking||null,p_order_number:form.order||null,p_memo:storedMemo||null});
+        if(rpcError)throw rpcError;
+        const {data:rows}=await supabase.from('stock_logs').select('id').eq('product_id',p.id).eq('user_id',user.id).eq('movement_type',isReturn?'in':form.type).order('created_at',{ascending:false}).limit(1);
+        if(rows?.[0]?.id){const {error:dateError}=await supabase.from('stock_logs').update({movement_date:form.movement_date}).eq('id',rows[0].id);if(dateError)throw dateError;}
+        onSaved({product_id:p.id,product_name:p.name,type:form.type,quantity:Number(item.qty),customer_id:form.customer_id||null,customer_name:customer?.name||null,recipient_name:form.recipient_name||null,destination:form.address||null,destination_detail:form.address_detail||null,courier:form.courier||null,tracking_number:form.tracking||null,order_number:form.order||null,memo:storedMemo||null,movement_date:form.movement_date,keepModal:true});
+      }
+      if(form.type==='out'&&form.payment_status==='credit'&&totalAmount>0){const {error:r}=await supabase.from('receivable_entries').insert({customer_id:customer.id,customer_name:customer.name,entry_type:'charge',amount:totalAmount,entry_date:form.movement_date,method:'출고 외상',memo:[`${valid.length}개 상품 일괄출고`,form.order?`주문번호 ${form.order}`:'',form.memo||''].filter(Boolean).join(' · '),source:'stock_out',created_by:user.id});if(r)throw new Error('출고는 처리되었지만 미수금 저장에 실패했습니다: '+r.message)}
+      onClose();
+    }catch(err){setError(normalizeError(err))}finally{setSaving(false)}
+  }
+  return <Modal title="여러 상품 입출고" onClose={onClose}><form onSubmit={save} className="form-grid">
+    <Select label="구분" value={form.type} set={v=>setForm({...form,type:v})} options={['in','out','return']} labels={{in:'입고',out:'출고',return:'반품'}}/>
+    <Field label={form.type==='out'?'출고일':form.type==='return'?'반품일':'입고일'} type="date" value={form.movement_date} set={v=>setForm({...form,movement_date:v})}/>
+    <div className="full" style={{display:'grid',gap:8}}><b>상품 / 수량</b>{items.map((item,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 120px 70px',gap:8}}><select value={item.product_id} onChange={e=>updateItem(i,'product_id',e.target.value)}><option value="">상품 선택</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} · {p.size||'없음'} · {p.color||'없음'} · 재고 {formatNumber(p.quantity)}</option>)}</select><input type="number" min="1" value={item.qty} onChange={e=>updateItem(i,'qty',e.target.value)}/><button type="button" className="ghost" onClick={()=>removeItem(i)}>삭제</button></div>)}<button type="button" className="ghost" onClick={addItem}>+ 상품 추가</button></div>
+    {(form.type==='out'||form.type==='return')&&<><Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pickCustomer} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/><Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/><Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/><div className="full address"><label>우편번호<input value={form.postal_code} readOnly/></label><label>주소<input value={form.address} readOnly/></label><button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button></div><Field label="상세주소" value={form.address_detail} set={v=>setForm({...form,address_detail:v})} full/>{form.type==='out'&&<><Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/><Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/><Select label="결제상태" value={form.payment_status} set={v=>setForm({...form,payment_status:v})} options={['paid','credit']} labels={{paid:'결제완료',credit:'외상(미수)'}}/><div><small>등급 적용 예상금액</small><strong style={{display:'block',marginTop:6}}>{formatWon(totalAmount)}</strong></div></>}<Field label={form.type==='return'?'원주문번호':'주문번호'} value={form.order} set={v=>setForm({...form,order:v})}/></>}
+    <Field label={form.type==='return'?'반품 사유':'메모'} value={form.memo} set={v=>setForm({...form,memo:v})} full/>{error&&<div className="error full">{error}</div>}<button className="primary full" disabled={saving}>{saving?'처리 중…':form.type==='out'?`${items.filter(x=>x.product_id).length}개 상품 일괄 출고`:'일괄 처리'}</button>
+  </form></Modal>;
 }
 
 function CustomerModal({value,onClose,onSaved}){
@@ -3347,6 +3399,23 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onDateChange}){
   const [type,setType]=useState('');
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
+  const [dateDrafts,setDateDrafts]=useState({});
+  const [dateSavingId,setDateSavingId]=useState('');
+
+  async function saveLogDate(log){
+    const draft=dateDrafts[log.id]||stockLogDate(log);
+    if(!draft)return;
+    if(draft===stockLogDate(log)){
+      setDateDrafts(current=>{const next={...current};delete next[log.id];return next});
+      return;
+    }
+    setDateSavingId(log.id);
+    const saved=await onDateChange?.(log,draft);
+    setDateSavingId('');
+    if(saved){
+      setDateDrafts(current=>{const next={...current};delete next[log.id];return next});
+    }
+  }
 
   const rows=useMemo(()=>logs.filter(log=>{
     const date=stockLogDate(log);
@@ -3397,6 +3466,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onDateChange}){
         >
           <Plus size={18}/>입출고 등록
         </button>
+        <button className="ghost" onClick={()=>onMove('__batch__')}>+ 여러 상품 등록</button>
       </div>
     </div>
     <div className="log-filter">
@@ -3410,7 +3480,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onDateChange}){
     <div className="log-list">
       {rows.map(log=><article key={log.id}>
         <span className={log.movement_type}>{log.movement_type==='in'?'입고':'출고'}</span>
-        <div><button type="button" className="log-product-link" title="입출고 상세보기" aria-label={`${log.product_name} 입출고 상세보기`} onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button><small>{stockLogDateKo(log)} · {log.staff_name}</small>{isAdmin&&<label style={{display:'inline-flex',alignItems:'center',gap:6,marginTop:6,fontSize:12,color:'#667085'}}>처리일 <input type="date" value={stockLogDate(log)} onChange={e=>onDateChange?.(log,e.target.value)}/></label>}{log.movement_type==='out'&&<p>{[log.customer_name,log.recipient_name,[log.destination,log.destination_detail].filter(Boolean).join(' '),log.tracking_number].filter(Boolean).join(' · ')}</p>}</div>
+        <div><button type="button" className="log-product-link" title="입출고 상세보기" aria-label={`${log.product_name} 입출고 상세보기`} onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button><small>{stockLogDateKo(log)} · {log.staff_name}</small>{isAdmin&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,fontSize:12,color:'#667085'}}><span>{log.movement_type==='out'?'출고일':'입고일'}</span><input type="date" value={dateDrafts[log.id]??stockLogDate(log)} onChange={e=>setDateDrafts(current=>({...current,[log.id]:e.target.value}))}/><button type="button" className="ghost" disabled={dateSavingId===log.id||!(dateDrafts[log.id]&&dateDrafts[log.id]!==stockLogDate(log))} onClick={()=>saveLogDate(log)}>{dateSavingId===log.id?'저장 중…':'저장'}</button></div>}{log.movement_type==='out'&&<p>{[log.customer_name,log.recipient_name,[log.destination,log.destination_detail].filter(Boolean).join(' '),log.tracking_number].filter(Boolean).join(' · ')}</p>}</div>
         <strong>{log.movement_type==='in'?'+':'-'}{formatNumber(log.quantity)}</strong>
         {isAdmin&&<button className="log-delete-button" onClick={()=>onDelete(log)}>삭제</button>}
       </article>)}
