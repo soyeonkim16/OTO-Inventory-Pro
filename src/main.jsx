@@ -2465,26 +2465,34 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
 
   const customerStats=useMemo(()=>{
     const stats={};
-    customers.forEach(c=>{stats[c.id]={totalOut:0,lastOut:''}});
+    customers.forEach(c=>{stats[c.id]={totalAmount:0,lastOut:''}});
     logs.forEach(log=>{
       if(log.movement_type!=='out'&&!isReturnLog(log))return;
       const customer=customers.find(c=>log.customer_id===c.id||(!log.customer_id&&log.customer_name===c.name));
       if(!customer)return;
-      if(!stats[customer.id])stats[customer.id]={totalOut:0,lastOut:''};
-      stats[customer.id].totalOut+=(isReturnLog(log)?-1:1)*Number(log.quantity||0);
+      if(!stats[customer.id])stats[customer.id]={totalAmount:0,lastOut:''};
+
+      // 누적금액은 출고 당시 저장된 단가(unit_price)를 우선 사용합니다.
+      // 예전 자료처럼 단가가 저장되지 않은 경우에만 해당 거래처의 현재 단가를 보조값으로 사용합니다.
+      const product=matchedProductForLog(log);
+      const fallbackPrice=productPriceByType(product,customer.price_type);
+      const unitPrice=Number(log.unit_price||fallbackPrice)||0;
+      const amount=unitPrice*Number(log.quantity||0);
+      stats[customer.id].totalAmount+=(isReturnLog(log)?-amount:amount);
+
       const date=stockLogDate(log);
       if(date>stats[customer.id].lastOut)stats[customer.id].lastOut=date;
     });
     return stats;
-  },[customers,logs]);
+  },[customers,logs,products]);
 
   const rows=useMemo(()=>{
     const filtered=customers.filter(c=>[c.name,c.recipient_name,c.phone,c.address,c.address_detail].join(' ').toLowerCase().includes(query.toLowerCase()));
     return [...filtered].sort((a,b)=>{
-      const aStats=customerStats[a.id]||{totalOut:0,lastOut:''};
-      const bStats=customerStats[b.id]||{totalOut:0,lastOut:''};
+      const aStats=customerStats[a.id]||{totalAmount:0,lastOut:''};
+      const bStats=customerStats[b.id]||{totalAmount:0,lastOut:''};
       let av='',bv='';
-      if(sort.key==='totalOut'){av=aStats.totalOut;bv=bStats.totalOut}
+      if(sort.key==='totalAmount'){av=aStats.totalAmount;bv=bStats.totalAmount}
       else if(sort.key==='lastOut'){av=aStats.lastOut||'';bv=bStats.lastOut||''}
       else{av=(a[sort.key]||'').toString();bv=(b[sort.key]||'').toString()}
       const result=typeof av==='number'?av-bv:av.localeCompare(bv,'ko',{numeric:true,sensitivity:'base'});
@@ -2655,9 +2663,9 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
     <div className="customer-layout">
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
-          <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
-        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
-        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
+          <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalAmount')}>누적 금액 <span>{sortMark('totalAmount')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{Math.max(0,stats.totalAmount).toLocaleString()}원</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
 
