@@ -1584,7 +1584,7 @@ function App(){
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>도매가</th><th>소매가</th><th>재고</th><th>상태</th><th></th></tr></thead>
+              <thead><tr><th>상품</th><th>사이즈</th><th>색상</th><th>도매가</th><th>도매가(VIP)</th><th>도매가(VVIP)</th><th>소매가</th><th>재고</th><th>상태</th><th></th></tr></thead>
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
                   <td data-label="상품"><div className="product-cell">
@@ -1594,6 +1594,8 @@ function App(){
                   <td data-label="사이즈">{p.size||'없음'}</td>
                   <td data-label="색상">{p.color||'없음'}</td>
                   <td data-label="도매가">{formatWon(p.wholesale_price)}</td>
+                  <td data-label="도매가(VIP)">{formatWon(p.vip_price)}</td>
+                  <td data-label="도매가(VVIP)">{formatWon(p.vvip_price)}</td>
                   <td data-label="소매가">{formatWon(p.retail_price)}</td>
                   <td data-label="재고"><b>{formatNumber(p.quantity)}</b> <small>/ 최소 {formatNumber(p.minimum_quantity)}</small></td>
                   <td data-label="상태"><Badge p={p}/></td>
@@ -1602,7 +1604,7 @@ function App(){
                     {isAdmin&&<button className="danger-button" onClick={()=>deleteProduct(p)}>삭제</button>}
                   </div></td>
                 </tr>)}
-                {!filtered.length&&<tr><td colSpan="8"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
+                {!filtered.length&&<tr><td colSpan="10"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
               </tbody>
             </table>
           </div>
