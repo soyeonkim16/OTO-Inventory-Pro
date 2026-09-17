@@ -1161,7 +1161,7 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
   realtime:{params:{eventsPerSecond:4}}
 });
 
-const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,wholesale_price:0,retail_price:0,memo:'',image_url:null};
+const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,wholesale_price:0,vip_price:0,vvip_price:0,retail_price:0,memo:'',image_url:null};
 const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',price_type:'wholesale',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 const RECEIVABLE_STORAGE_KEY='oto_receivable_entries';
@@ -1173,6 +1173,15 @@ function formatNumber(value){
 }
 function formatWon(value){return `${formatNumber(value)}원`}
 function formatQty(value){return `${formatNumber(value)}개`}
+
+function priceTypeLabel(type){return ({wholesale:'도매가',vip:'도매가(VIP)',vvip:'도매가(VVIP)',retail:'소매가'})[type]||'도매가'}
+function productPriceByType(product,type='wholesale'){
+  if(!product)return 0;
+  if(type==='retail')return Number(product.retail_price||0);
+  if(type==='vip')return Number(product.vip_price||product.wholesale_price||0);
+  if(type==='vvip')return Number(product.vvip_price||product.vip_price||product.wholesale_price||0);
+  return Number(product.wholesale_price||0);
+}
 
 // 실제 입출고일: movement_date가 있으면 우선 사용하고, 이전 자료는 created_at의 한국 날짜를 사용합니다.
 function stockLogDate(log){
@@ -1773,6 +1782,8 @@ function ProductModal({value,onClose,onSaved}){
         quantity:Number(form.quantity),
         minimum_quantity:Number(form.minimum_quantity),
         wholesale_price:Number(form.wholesale_price||0),
+        vip_price:Number(form.vip_price||0),
+        vvip_price:Number(form.vvip_price||0),
         retail_price:Number(form.retail_price||0),
         memo:form.memo?.trim()||null,
         image_url:uploadedImageUrl,
@@ -1816,6 +1827,8 @@ function ProductModal({value,onClose,onSaved}){
       <Field label="현재 수량" type="number" value={form.quantity} set={v=>setForm({...form,quantity:v})}/>
       <Field label="최소 수량" type="number" value={form.minimum_quantity} set={v=>setForm({...form,minimum_quantity:v})}/>
       <Field label="도매 단가" type="number" value={form.wholesale_price||0} set={v=>setForm({...form,wholesale_price:v})}/>
+      <Field label="도매 단가(VIP)" type="number" value={form.vip_price||0} set={v=>setForm({...form,vip_price:v})}/>
+      <Field label="도매 단가(VVIP)" type="number" value={form.vvip_price||0} set={v=>setForm({...form,vvip_price:v})}/>
       <Field label="소매 단가" type="number" value={form.retail_price||0} set={v=>setForm({...form,retail_price:v})}/>
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
@@ -1831,7 +1844,7 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
 
   function pick(id){
     const customer=customers.find(item=>item.id===id);
-    const unitPrice=Number(customer?.price_type==='retail'?product.retail_price:product.wholesale_price)||0;
+    const unitPrice=productPriceByType(product,customer?.price_type);
     setForm({...form,customer_id:id,recipient_name:customer?.recipient_name||'',phone:customer?.phone||'',postal_code:customer?.postal_code||'',address:customer?.address||'',address_detail:customer?.address_detail||'',courier:customer?.courier||'',receivable_amount:String(unitPrice*Number(form.qty||0))});
   }
 
@@ -1893,7 +1906,7 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
 
       const selectedCustomer=customers.find(c=>c.id===form.customer_id);
       if(form.type==='out'&&form.payment_status==='credit'){
-        const unitPrice=Number(selectedCustomer?.price_type==='retail'?product.retail_price:product.wholesale_price)||0;
+        const unitPrice=productPriceByType(product,selectedCustomer?.price_type);
         const receivableAmount=Number(form.receivable_amount||unitPrice*Number(form.qty||0));
         if(receivableAmount>0){
           const {error:receivableError}=await supabase.from('receivable_entries').insert({
@@ -1954,7 +1967,7 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
           <Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/>
           <Select label="결제상태" value={form.payment_status} set={v=>{
             const customer=customers.find(item=>item.id===form.customer_id);
-            const unitPrice=Number(customer?.price_type==='retail'?product.retail_price:product.wholesale_price)||0;
+            const unitPrice=productPriceByType(product,customer?.price_type);
             setForm({...form,payment_status:v,receivable_amount:v==='credit'?String(unitPrice*Number(form.qty||0)):form.receivable_amount});
           }} options={['paid','credit']} labels={{paid:'결제완료',credit:'외상(미수)'}}/>
           {form.payment_status==='credit'&&<Field label="등록할 미수금액" type="number" value={form.receivable_amount} set={v=>setForm({...form,receivable_amount:v})}/>} 
@@ -1995,7 +2008,7 @@ function CustomerModal({value,onClose,onSaved}){
       </div>
       <Field label="상세주소" value={form.address_detail||''} set={v=>setForm({...form,address_detail:v})} full/>
       <Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
-      <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','retail']} labels={{wholesale:'도매가',retail:'소매가'}}/>
+      <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','vip','vvip','retail']} labels={{wholesale:'도매가',vip:'도매가(VIP)',vvip:'도매가(VVIP)',retail:'소매가'}}/>
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})}/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
@@ -2030,7 +2043,7 @@ function SalesDashboard({logs,products,customers}){
       const product=productMap.get(String(log.product_id||''))||products.find(item=>String(log.product_name||'').startsWith(item.name));
       const customer=customerMap.get(String(log.customer_id||''))||customers.find(item=>item.name===log.customer_name);
       const priceType=customer?.price_type||'wholesale';
-      const fallbackPrice=Number(priceType==='retail'?product?.retail_price:product?.wholesale_price)||0;
+      const fallbackPrice=Number(productPriceByType(product,priceType))||0;
       const unitPrice=Number(log.unit_price||fallbackPrice)||0;
       const quantity=Number(log.quantity||0);
       const amount=quantity*unitPrice;
@@ -2439,7 +2452,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
     if(!selected||group.returned)return 0;
     return group.logs.reduce((sum,log)=>{
       const product=matchedProductForLog(log);
-      const defaultPrice=Number(selected.price_type==='retail'?product?.retail_price:product?.wholesale_price)||0;
+      const defaultPrice=productPriceByType(product,selected.price_type);
       const unitPrice=Number(log.unit_price||defaultPrice)||0;
       const remaining=Math.max(0,Number(log.quantity||0)-returnedForLog(log));
       return sum+(unitPrice*remaining);
@@ -2552,8 +2565,8 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
           <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalOut')}>누적 출고 <span>{sortMark('totalOut')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
-        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type==='retail'?'retail':'wholesale')}>{c.price_type==='retail'?'소매':'도매'}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
-        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {c.price_type==='retail'?'소매가':'도매가'}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{stats.totalOut.toLocaleString()}개</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalOut:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
 
@@ -2609,11 +2622,7 @@ function InvoiceModal({customer,logs,products,onClose}){
         if(productSize&&productSize!=='없음'&&searchableItem.includes(productSize))score+=20;
         if(productColor&&productColor!=='없음'&&searchableItem.includes(productColor))score+=20;
 
-        const price=Number(
-          selectedPriceType==='retail'
-            ? product?.retail_price
-            : product?.wholesale_price
-        )||0;
+        const price=productPriceByType(product,selectedPriceType);
         if(price>0)score+=5;
 
         return {product,score};
@@ -2811,11 +2820,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       const customPrice=Number(customerPrices[String(product.id)]||0);
       const matchedPrice=customPrice>0
         ? customPrice
-        : Number(
-            priceType==='retail'
-              ? product.retail_price
-              : product.wholesale_price
-          )||0;
+        : productPriceByType(product,priceType);
 
       return matchedPrice>0
         ? {...item,productId:product.id,unitPrice:matchedPrice}
@@ -3461,7 +3466,7 @@ function CustomerDetailModal({customer,products,logs,receivableEntries,onOpenInv
   const productFor=log=>products.find(product=>String(product.id)===String(log.product_id))||products.find(product=>String(log.product_name||'').startsWith(product.name));
   const amountFor=log=>{
     const product=productFor(log);
-    const fallback=Number(customer.price_type==='retail'?product?.retail_price:product?.wholesale_price)||0;
+    const fallback=productPriceByType(product,customer.price_type);
     return Number(log.quantity||0)*(Number(log.unit_price||fallback)||0)*(isReturn(log)?-1:1);
   };
   const totalAmount=customerLogs.reduce((sum,log)=>sum+amountFor(log),0);
@@ -3472,7 +3477,7 @@ function CustomerDetailModal({customer,products,logs,receivableEntries,onOpenInv
     return Object.values(map).sort((a,b)=>b.date.localeCompare(a.date));
   },[customerLogs]);
   return <Modal title="거래처 상세보기" onClose={onClose}>
-    <div className="customer-detail-head"><div><small>{customer.price_type==='retail'?'소매 단가 거래처':'도매 단가 거래처'}</small><h3>{customer.name}</h3><p>{customer.memo||'등록된 메모가 없습니다.'}</p></div></div>
+    <div className="customer-detail-head"><div><small>{priceTypeLabel(customer.price_type)} 거래처</small><h3>{customer.name}</h3><p>{customer.memo||'등록된 메모가 없습니다.'}</p></div></div>
     <div className="customer-contact-grid"><div><small>받는 사람</small><strong>{customer.recipient_name||'-'}</strong></div><div><small>연락처</small><strong>{customer.phone||'-'}</strong></div><div className="wide"><small>주소</small><strong>{[customer.postal_code&&`(${customer.postal_code})`,customer.address,customer.address_detail].filter(Boolean).join(' ')||'-'}</strong></div></div>
     <div className="detail-stat-grid customer-detail-stats"><div><small>총 거래금액</small><strong>{formatWon(totalAmount)}</strong></div><div><small>거래 건수</small><strong>{formatNumber(groups.length)}건</strong></div><div><small>최근 거래일</small><strong>{customerLogs[0]?stockLogDateKo(customerLogs[0]):'-'}</strong></div><div><small>미수금</small><strong className={balance>0?'danger-text':''}>{formatWon(Math.max(0,balance))}</strong></div></div>
     <div className="detail-section-title">최근 거래명세표</div>
