@@ -2109,7 +2109,7 @@ function SalesDashboard({logs,products,customers}){
 
       rows.push({
         id:log.id,
-        date:date.toLocaleDateString('en-CA'),
+        date:date,
         customer:customer?.name||log.customer_name||'거래처 미지정',
         customerId:customer?.id||log.customer_id||null,
         customerRecord:customer||null,
