@@ -1526,9 +1526,13 @@ function App(){
   async function updateStockLogDate(log,newDate){
     if(profile?.role!=='admin')return false;
     if(!log?.id||String(log.id).startsWith('temp-')||!newDate)return false;
-    const {error}=await supabase.from('stock_logs').update({movement_date:newDate}).eq('id',log.id);
+    const {data,error}=await supabase.from('stock_logs').update({movement_date:newDate}).eq('id',log.id).select('id,movement_date').maybeSingle();
     if(error){
       window.alert('출고일 수정에 실패했습니다: '+normalizeError(error));
+      return false;
+    }
+    if(!data?.id||String(data.movement_date||'').slice(0,10)!==newDate){
+      window.alert('출고일이 실제 데이터베이스에 저장되지 않았습니다. Supabase UPDATE 권한(RLS)을 확인해주세요.');
       return false;
     }
     setLogs(current=>current.map(item=>item.id===log.id?{...item,movement_date:newDate}:item));
@@ -2784,11 +2788,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       ].join('|');
 
       const defaultPrice=product
-        ? Number(
-            initialPriceType==='retail'
-              ? product.retail_price
-              : product.wholesale_price
-          )||0
+        ? productPriceByType(product,initialPriceType)
         : 0;
 
       const savedLogPrice=Number(log.unit_price||0);
@@ -2801,9 +2801,11 @@ function InvoiceModal({customer,logs,products,onClose}){
           name:`${isReturn?'[반품] ':''}${log.product_name||product?.name||''}`,
           spec,
           quantity:0,
-          unitPrice:savedLogPrice>0
-            ? savedLogPrice
-            : defaultPrice,
+          // 거래처가 VIP/VVIP인 경우 명세표는 해당 등급 상품가를 우선 적용합니다.
+          // 일반 도매/소매는 실제 출고 당시 저장된 단가가 있으면 그 값을 유지합니다.
+          unitPrice:(initialPriceType==='vip'||initialPriceType==='vvip')
+            ? defaultPrice
+            : (savedLogPrice>0?savedLogPrice:defaultPrice),
           taxRate:10,
           productId:product?.id||log.product_id||null
         };
@@ -2951,11 +2953,7 @@ function InvoiceModal({customer,logs,products,onClose}){
         const customPrice=Number(customerPrices[String(product.id)]||0);
         const nextPrice=customPrice>0
           ? customPrice
-          : Number(
-              nextType==='retail'
-                ? product.retail_price
-                : product.wholesale_price
-            )||0;
+          : productPriceByType(product,nextType);
 
         return {
           ...item,
@@ -3095,6 +3093,8 @@ function InvoiceModal({customer,logs,products,onClose}){
           <span>단가</span>
           <select value={priceType} onChange={e=>applyPriceType(e.target.value)}>
             <option value="wholesale">도매가</option>
+            <option value="vip">도매가(VIP)</option>
+            <option value="vvip">도매가(VVIP)</option>
             <option value="retail">소매가</option>
           </select>
         </label>
