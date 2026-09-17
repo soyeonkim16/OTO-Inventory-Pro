@@ -2113,24 +2113,22 @@ function postcode(done){
 }
 
 function SalesDashboard({logs,products,customers}){
-  const currentMonth=new Date().toLocaleDateString('en-CA').slice(0,7);
+  const today=new Date().toLocaleDateString('en-CA');
+  const currentMonth=today.slice(0,7);
+  const currentYear=today.slice(0,4);
+  const [viewMode,setViewMode]=useState('monthly');
   const [month,setMonth]=useState(currentMonth);
+  const [year,setYear]=useState(currentYear);
   const [invoiceData,setInvoiceData]=useState(null);
 
-  const report=useMemo(()=>{
+  const makeRows=useMemo(()=>{
     const productMap=new Map(products.map(product=>[String(product.id),product]));
     const customerMap=new Map(customers.map(customer=>[String(customer.id),customer]));
-    const rows=[];
-
-    logs.forEach(log=>{
+    return logs.map(log=>{
       const date=stockLogDate(log);
-      const logMonth=date.slice(0,7);
-      if(logMonth!==month)return;
-
       const isReturn=log.movement_type==='in'&&String(log.memo||'').startsWith('[반품]');
       const isSale=log.movement_type==='out';
-      if(!isSale&&!isReturn)return;
-
+      if(!isSale&&!isReturn)return null;
       const product=productMap.get(String(log.product_id||''))||products.find(item=>String(log.product_name||'').startsWith(item.name));
       const customer=customerMap.get(String(log.customer_id||''))||customers.find(item=>item.name===log.customer_name);
       const priceType=customer?.price_type||'wholesale';
@@ -2138,119 +2136,77 @@ function SalesDashboard({logs,products,customers}){
       const unitPrice=Number(log.unit_price||fallbackPrice)||0;
       const quantity=Number(log.quantity||0);
       const amount=quantity*unitPrice;
+      return {id:log.id,date,customer:customer?.name||log.customer_name||'거래처 미지정',customerId:customer?.id||log.customer_id||null,customerRecord:customer||null,product:log.product_name||product?.name||'',quantity,unitPrice,amount,isReturn,sourceLog:log};
+    }).filter(Boolean);
+  },[logs,products,customers]);
 
-      rows.push({
-        id:log.id,
-        date:date,
-        customer:customer?.name||log.customer_name||'거래처 미지정',
-        customerId:customer?.id||log.customer_id||null,
-        customerRecord:customer||null,
-        product:log.product_name||product?.name||'',
-        quantity,
-        unitPrice,
-        amount,
-        isReturn,
-        sourceLog:log
-      });
-    });
-
+  const report=useMemo(()=>{
+    const rows=makeRows.filter(row=>row.date.slice(0,7)===month);
     const gross=rows.filter(row=>!row.isReturn).reduce((sum,row)=>sum+row.amount,0);
     const returns=rows.filter(row=>row.isReturn).reduce((sum,row)=>sum+row.amount,0);
     const byCustomer={};
     rows.forEach(row=>{
       if(!byCustomer[row.customer])byCustomer[row.customer]={customer:row.customer,gross:0,returns:0,net:0};
-      if(row.isReturn)byCustomer[row.customer].returns+=row.amount;
-      else byCustomer[row.customer].gross+=row.amount;
+      if(row.isReturn)byCustomer[row.customer].returns+=row.amount; else byCustomer[row.customer].gross+=row.amount;
       byCustomer[row.customer].net=byCustomer[row.customer].gross-byCustomer[row.customer].returns;
     });
+    return {rows:rows.sort((a,b)=>b.date.localeCompare(a.date)),gross,returns,net:gross-returns,byCustomer:Object.values(byCustomer).sort((a,b)=>b.net-a.net)};
+  },[makeRows,month]);
 
-    return {
-      rows:rows.sort((a,b)=>b.date.localeCompare(a.date)),
-      gross,
-      returns,
-      net:gross-returns,
-      byCustomer:Object.values(byCustomer).sort((a,b)=>b.net-a.net)
-    };
-  },[logs,products,customers,month]);
+  const yearlyReport=useMemo(()=>{
+    const rows=makeRows.filter(row=>row.date.slice(0,4)===String(year));
+    const months=Array.from({length:12},(_,i)=>({month:i+1,label:`${i+1}월`,gross:0,returns:0,net:0,count:0}));
+    rows.forEach(row=>{
+      const idx=Number(row.date.slice(5,7))-1;
+      if(idx<0||idx>11)return;
+      if(row.isReturn)months[idx].returns+=row.amount; else months[idx].gross+=row.amount;
+      months[idx].net=months[idx].gross-months[idx].returns;
+      months[idx].count+=1;
+    });
+    const gross=months.reduce((sum,row)=>sum+row.gross,0);
+    const returns=months.reduce((sum,row)=>sum+row.returns,0);
+    return {rows,gross,returns,net:gross-returns,count:rows.length,months};
+  },[makeRows,year]);
 
   function download(){
-    const data=[
-      ['날짜','구분','거래처','품목','수량','단가','금액'],
-      ...report.rows.map(row=>[row.date,row.isReturn?'반품':'출고',row.customer,row.product,row.isReturn?-row.quantity:row.quantity,row.unitPrice,row.isReturn?-row.amount:row.amount])
-    ];
+    if(viewMode==='yearly'){
+      const data=[['월','출고매출','반품금액','순매출','거래건수'],...yearlyReport.months.map(row=>[row.label,row.gross,row.returns,row.net,row.count])];
+      downloadCsv(data,`${year}_연간매출.csv`); return;
+    }
+    const data=[['날짜','구분','거래처','품목','수량','단가','금액'],...report.rows.map(row=>[row.date,row.isReturn?'반품':'출고',row.customer,row.product,row.isReturn?-row.quantity:row.quantity,row.unitPrice,row.isReturn?-row.amount:row.amount])];
     downloadCsv(data,`${month}_월별매출.csv`);
   }
 
   function openInvoice(row){
     const customer=row.customerRecord||customers.find(item=>String(item.id)===String(row.customerId)||item.name===row.customer);
     if(!customer){alert('거래처 정보를 찾을 수 없어 명세표를 열 수 없습니다.');return}
-
-    // 같은 날짜·같은 거래처의 동일 구분(출고 또는 반품) 품목만 한 장으로 묶습니다.
-    // 반품 명세표는 InvoiceModal에서 수량과 금액이 음수로 표시됩니다.
-    const sameDayLogs=report.rows
-      .filter(item=>item.isReturn===row.isReturn&&item.date===row.date&&item.customer===row.customer)
-      .map(item=>item.sourceLog)
-      .filter(Boolean);
-
+    const sameDayLogs=report.rows.filter(item=>item.isReturn===row.isReturn&&item.date===row.date&&item.customer===row.customer).map(item=>item.sourceLog).filter(Boolean);
     setInvoiceData({customer,logs:sameDayLogs,isReturn:row.isReturn});
   }
 
   return <><section className="panel">
     <div className="tab-intro">
-      <div className="tab-intro-text"><h3>월별 매출 현황</h3><p>출고매출에서 반품금액을 차감한 순매출입니다.</p></div>
-      <div className="tab-intro-actions">
-        <input type="month" value={month} onChange={event=>setMonth(event.target.value)} style={{minHeight:42,padding:'0 12px',border:'1px solid #d0d5dd',borderRadius:10}}/>
+      <div className="tab-intro-text"><h3>{viewMode==='monthly'?'월별 매출 현황':'연별 매출 현황'}</h3><p>출고매출에서 반품금액을 차감한 순매출입니다.</p></div>
+      <div className="tab-intro-actions" style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{display:'flex',padding:3,border:'1px solid #d0d5dd',borderRadius:10,background:'#f9fafb'}}>
+          <button type="button" onClick={()=>setViewMode('monthly')} style={{border:0,borderRadius:7,padding:'8px 14px',fontWeight:700,cursor:'pointer',background:viewMode==='monthly'?'#fff':'transparent',color:viewMode==='monthly'?'#155eef':'#667085',boxShadow:viewMode==='monthly'?'0 1px 3px rgba(16,24,40,.12)':'none'}}>월별</button>
+          <button type="button" onClick={()=>setViewMode('yearly')} style={{border:0,borderRadius:7,padding:'8px 14px',fontWeight:700,cursor:'pointer',background:viewMode==='yearly'?'#fff':'transparent',color:viewMode==='yearly'?'#155eef':'#667085',boxShadow:viewMode==='yearly'?'0 1px 3px rgba(16,24,40,.12)':'none'}}>연별</button>
+        </div>
+        {viewMode==='monthly'?<input type="month" value={month} onChange={event=>setMonth(event.target.value)} style={{minHeight:42,padding:'0 12px',border:'1px solid #d0d5dd',borderRadius:10}}/>:<select value={year} onChange={event=>setYear(event.target.value)} style={{minHeight:42,padding:'0 34px 0 12px',border:'1px solid #d0d5dd',borderRadius:10,background:'#fff'}}>{Array.from(new Set([currentYear,...makeRows.map(row=>row.date.slice(0,4))])).filter(Boolean).sort((a,b)=>b.localeCompare(a)).map(y=><option key={y} value={y}>{y}년</option>)}</select>}
         <button className="ghost" onClick={download}><Download size={17}/>엑셀 저장</button>
       </div>
     </div>
 
-    <div className="stats" style={{marginTop:18}}>
-      <SalesStat label="출고 매출" value={report.gross} suffix="원"/>
-      <SalesStat label="반품 금액" value={report.returns} suffix="원" danger={report.returns>0}/>
-      <SalesStat label="순매출" value={report.net} suffix="원"/>
-      <SalesStat label="거래 건수" value={report.rows.length} suffix="건"/>
-    </div>
-
-    <div className="table-wrap" style={{marginTop:18}}>
-      <table>
-        <thead><tr><th>거래처</th><th>출고매출</th><th>반품액</th><th>순매출</th></tr></thead>
-        <tbody>
-          {report.byCustomer.map(row=><tr key={row.customer}>
-            <td data-label="거래처"><b>{row.customer}</b></td>
-            <td data-label="출고매출">{row.gross.toLocaleString()}원</td>
-            <td data-label="반품액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td>
-            <td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td>
-          </tr>)}
-          {!report.byCustomer.length&&<tr><td colSpan="4"><Empty text="선택한 달의 매출내역이 없습니다."/></td></tr>}
-        </tbody>
-      </table>
-    </div>
-
-    <div className="table-wrap" style={{marginTop:22}}>
-      <table>
-        <thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>금액</th><th>명세표</th></tr></thead>
-        <tbody>
-          {report.rows.map(row=><tr key={row.id}>
-            <td data-label="날짜">{row.date}</td>
-            <td data-label="구분"><b style={{color:row.isReturn?'#d92d20':'inherit'}}>{row.isReturn?'반품':'출고'}</b></td>
-            <td data-label="거래처">{row.customer}</td>
-            <td data-label="품목">{row.product}</td>
-            <td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td>
-            <td data-label="단가">{row.unitPrice.toLocaleString()}원</td>
-            <td data-label="금액"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td>
-            <td data-label="명세표"><button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap',color:row.isReturn?'#d92d20':undefined,borderColor:row.isReturn?'#fecdca':undefined}}><Printer size={14}/>{row.isReturn?'반품 명세표':'명세표'}</button></td>
-          </tr>)}
-          {!report.rows.length&&<tr><td colSpan="8"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}
-        </tbody>
-      </table>
-    </div>
-
-    <p style={{margin:'14px 2px 0',fontSize:12,color:'#667085'}}>
-      과거 기록에 저장 단가가 없는 경우 현재 상품 단가와 거래처의 도매·소매 설정을 기준으로 계산됩니다.
-    </p>
-  </section>
-  {invoiceData&&<InvoiceModal customer={invoiceData.customer} products={products} logs={invoiceData.logs} onClose={()=>setInvoiceData(null)}/>} 
-  </>;
+    {viewMode==='monthly'?<>
+      <div className="stats" style={{marginTop:18}}><SalesStat label="출고 매출" value={report.gross} suffix="원"/><SalesStat label="반품 금액" value={report.returns} suffix="원" danger={report.returns>0}/><SalesStat label="순매출" value={report.net} suffix="원"/><SalesStat label="거래 건수" value={report.rows.length} suffix="건"/></div>
+      <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>거래처</th><th>출고매출</th><th>반품액</th><th>순매출</th></tr></thead><tbody>{report.byCustomer.map(row=><tr key={row.customer}><td data-label="거래처"><b>{row.customer}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td></tr>)}{!report.byCustomer.length&&<tr><td colSpan="4"><Empty text="선택한 달의 매출내역이 없습니다."/></td></tr>}</tbody></table></div>
+      <div className="table-wrap" style={{marginTop:22}}><table><thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>금액</th><th>명세표</th></tr></thead><tbody>{report.rows.map(row=><tr key={row.id}><td data-label="날짜">{row.date}</td><td data-label="구분"><b style={{color:row.isReturn?'#d92d20':'inherit'}}>{row.isReturn?'반품':'출고'}</b></td><td data-label="거래처">{row.customer}</td><td data-label="품목">{row.product}</td><td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td><td data-label="단가">{row.unitPrice.toLocaleString()}원</td><td data-label="금액"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td><td data-label="명세표"><button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap',color:row.isReturn?'#d92d20':undefined,borderColor:row.isReturn?'#fecdca':undefined}}><Printer size={14}/>{row.isReturn?'반품 명세표':'명세표'}</button></td></tr>)}{!report.rows.length&&<tr><td colSpan="8"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}</tbody></table></div>
+    </>:<>
+      <div className="stats" style={{marginTop:18}}><SalesStat label="연간 출고매출" value={yearlyReport.gross} suffix="원"/><SalesStat label="연간 반품금액" value={yearlyReport.returns} suffix="원" danger={yearlyReport.returns>0}/><SalesStat label="연간 순매출" value={yearlyReport.net} suffix="원"/><SalesStat label="연간 거래 건수" value={yearlyReport.count} suffix="건"/></div>
+      <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>월</th><th>출고매출</th><th>반품금액</th><th>순매출</th><th>거래 건수</th></tr></thead><tbody>{yearlyReport.months.map(row=><tr key={row.month}><td data-label="월"><b>{row.label}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품금액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td><td data-label="거래 건수">{row.count.toLocaleString()}건</td></tr>)}</tbody></table></div>
+    </>}
+    <p style={{margin:'14px 2px 0',fontSize:12,color:'#667085'}}>과거 기록에 저장 단가가 없는 경우 현재 상품 단가와 거래처의 도매·소매 설정을 기준으로 계산됩니다.</p>
+  </section>{invoiceData&&<InvoiceModal customer={invoiceData.customer} products={products} logs={invoiceData.logs} onClose={()=>setInvoiceData(null)}/>}</>;
 }
 
 function ReturnFromLogModal({log,customer,product,alreadyReturned,profile,user,onClose,onSaved}){
