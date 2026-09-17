@@ -1177,6 +1177,7 @@ function formatQty(value){return `${formatNumber(value)}개`}
 function priceTypeLabel(type){return ({wholesale:'도매가',vip:'도매가(VIP)',vvip:'도매가(VVIP)',retail:'소매가'})[type]||'도매가'}
 function productPriceByType(product,type='wholesale'){
   if(!product)return 0;
+  if(String(product.category||'').trim()==='택배비')return Number(product.wholesale_price||0);
   if(type==='retail')return Number(product.retail_price||0);
   if(type==='vip')return Number(product.vip_price||product.wholesale_price||0);
   if(type==='vvip')return Number(product.vvip_price||product.vip_price||product.wholesale_price||0);
@@ -1792,8 +1793,8 @@ function ProductModal({value,onClose,onSaved}){
         category:form.category.trim(),
         size:form.size,
         color:form.color,
-        quantity:Number(form.quantity),
-        minimum_quantity:Number(form.minimum_quantity),
+        quantity:String(form.category||'').trim()==='택배비'?999999:Number(form.quantity),
+        minimum_quantity:String(form.category||'').trim()==='택배비'?0:Number(form.minimum_quantity),
         wholesale_price:Number(form.wholesale_price||0),
         vip_price:Number(form.vip_price||0),
         vvip_price:Number(form.vvip_price||0),
@@ -1837,8 +1838,8 @@ function ProductModal({value,onClose,onSaved}){
       <Select label="사이즈" value={form.size} set={v=>setForm({...form,size:v})} options={['없음','소','중','대']}/>
       <Select label="색상" value={form.color} set={v=>setForm({...form,color:v})} options={['없음','투명','검정','기타']}/>
       <Field label="카테고리" value={form.category} set={v=>setForm({...form,category:v})}/>
-      <Field label="현재 수량" type="number" value={form.quantity} set={v=>setForm({...form,quantity:v})}/>
-      <Field label="최소 수량" type="number" value={form.minimum_quantity} set={v=>setForm({...form,minimum_quantity:v})}/>
+      {String(form.category||'').trim()==='택배비'&&<div className="full" style={{padding:'10px 12px',borderRadius:10,background:'#fff7ed',fontSize:13}}>택배비 상품은 <b>도매 단가</b>를 택배 1건(또는 1박스) 금액으로 사용하며 VIP/VVIP 할인은 적용하지 않습니다. 출고할 때 수량으로 택배 건수를 조정하세요.</div>}
+      {String(form.category||'').trim()!=='택배비'&&<><Field label="현재 수량" type="number" value={form.quantity} set={v=>setForm({...form,quantity:v})}/><Field label="최소 수량" type="number" value={form.minimum_quantity} set={v=>setForm({...form,minimum_quantity:v})}/></>}
       <Field label="도매 단가" type="number" value={form.wholesale_price||0} set={v=>setForm({...form,wholesale_price:v})}/>
       <Field label="도매 단가(VIP)" type="number" value={form.vip_price||0} set={v=>setForm({...form,vip_price:v})}/>
       <Field label="도매 단가(VVIP)" type="number" value={form.vvip_price||0} set={v=>setForm({...form,vvip_price:v})}/>
@@ -2012,7 +2013,7 @@ function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
     const valid=items.filter(x=>x.product_id&&Number(x.qty)>0);
     if(!valid.length){setError('상품을 1개 이상 선택하세요.');return}
     if((form.type==='out'||form.type==='return')&&!form.customer_id){setError(form.type==='return'?'반품 거래처를 선택하세요.':'출고 거래처를 선택하세요.');return}
-    for(const item of valid){const p=products.find(x=>String(x.id)===String(item.product_id));if(form.type==='out'&&Number(item.qty)>Number(p?.quantity||0)){setError(`${p?.name||'상품'}의 현재 재고보다 많이 출고할 수 없습니다.`);return}}
+    for(const item of valid){const p=products.find(x=>String(x.id)===String(item.product_id));if(form.type==='out'&&String(p?.category||'').trim()!=='택배비'&&Number(item.qty)>Number(p?.quantity||0)){setError(`${p?.name||'상품'}의 현재 재고보다 많이 출고할 수 없습니다.`);return}}
     setSaving(true);setError('');
     try{
       const batchToken=`BATCH-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -2033,7 +2034,7 @@ function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
   return <Modal title="여러 상품 입출고" onClose={onClose}><form onSubmit={save} className="form-grid">
     <Select label="구분" value={form.type} set={v=>setForm({...form,type:v})} options={['in','out','return']} labels={{in:'입고',out:'출고',return:'반품'}}/>
     <Field label={form.type==='out'?'출고일':form.type==='return'?'반품일':'입고일'} type="date" value={form.movement_date} set={v=>setForm({...form,movement_date:v})}/>
-    <div className="full" style={{display:'grid',gap:8}}><b>상품 / 수량</b>{items.map((item,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 120px 70px',gap:8}}><select value={item.product_id} onChange={e=>updateItem(i,'product_id',e.target.value)}><option value="">상품 선택</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} · {p.size||'없음'} · {p.color||'없음'} · 재고 {formatNumber(p.quantity)}</option>)}</select><input type="number" min="1" value={item.qty} onChange={e=>updateItem(i,'qty',e.target.value)}/><button type="button" className="ghost" onClick={()=>removeItem(i)}>삭제</button></div>)}<button type="button" className="ghost" onClick={addItem}>+ 상품 추가</button></div>
+    <div className="full" style={{display:'grid',gap:8}}><b>상품 / 수량</b>{items.map((item,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 120px 70px',gap:8}}><select value={item.product_id} onChange={e=>updateItem(i,'product_id',e.target.value)}><option value="">상품 선택</option>{products.map(p=><option key={p.id} value={p.id}>{String(p.category||'').trim()==='택배비'?`${p.name} · ${formatWon(p.wholesale_price)} / 건`:`${p.name} · ${p.size||'없음'} · ${p.color||'없음'} · 재고 ${formatNumber(p.quantity)}`}</option>)}</select><input type="number" min="1" value={item.qty} onChange={e=>updateItem(i,'qty',e.target.value)}/><button type="button" className="ghost" onClick={()=>removeItem(i)}>삭제</button></div>)}<button type="button" className="ghost" onClick={addItem}>+ 상품 추가</button></div>
     {(form.type==='out'||form.type==='return')&&<><Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pickCustomer} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/><Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/><Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/><div className="full address"><label>우편번호<input value={form.postal_code} readOnly/></label><label>주소<input value={form.address} readOnly/></label><button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button></div><Field label="상세주소" value={form.address_detail} set={v=>setForm({...form,address_detail:v})} full/>{form.type==='out'&&<><Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/><Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/><Select label="결제상태" value={form.payment_status} set={v=>setForm({...form,payment_status:v})} options={['paid','credit']} labels={{paid:'결제완료',credit:'외상(미수)'}}/><div><small>등급 적용 예상금액</small><strong style={{display:'block',marginTop:6}}>{formatWon(totalAmount)}</strong></div></>}<Field label={form.type==='return'?'원주문번호':'주문번호'} value={form.order} set={v=>setForm({...form,order:v})}/></>}
     <Field label={form.type==='return'?'반품 사유':'메모'} value={form.memo} set={v=>setForm({...form,memo:v})} full/>{error&&<div className="error full">{error}</div>}<button className="primary full" disabled={saving}>{saving?'처리 중…':form.type==='out'?`${items.filter(x=>x.product_id).length}개 상품 일괄 출고`:'일괄 처리'}</button>
   </form></Modal>;
