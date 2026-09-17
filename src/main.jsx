@@ -1174,7 +1174,7 @@ function formatNumber(value){
 function formatWon(value){return `${formatNumber(value)}원`}
 function formatQty(value){return `${formatNumber(value)}개`}
 
-function priceTypeLabel(type){return ({wholesale:'도매가',vip:'도매가(VIP)',vvip:'도매가(VVIP)',retail:'소매가'})[type]||'도매가'}
+function priceTypeLabel(type){return ({wholesale:'도매가(VAT별도)',vip:'도매가(VIP·VAT별도)',vvip:'도매가(VVIP·VAT별도)',retail:'소매가(VAT포함)'})[type]||'도매가(VAT별도)'}
 function productPriceByType(product,type='wholesale'){
   if(!product)return 0;
   if(String(product.category||'').trim()==='택배비')return Number(product.wholesale_price||0);
@@ -1182,6 +1182,19 @@ function productPriceByType(product,type='wholesale'){
   if(type==='vip')return Number(product.vip_price||product.wholesale_price||0);
   if(type==='vvip')return Number(product.vvip_price||product.vip_price||product.wholesale_price||0);
   return Number(product.wholesale_price||0);
+}
+
+
+// 소매가는 VAT 포함, 도매/VIP/VVIP는 VAT 별도 단가로 계산합니다.
+function vatBreakdown(unitPrice,quantity=1,priceType='wholesale'){
+  const base=Math.round(Number(unitPrice||0)*Number(quantity||0));
+  if(priceType==='retail'){
+    const supply=Math.round(base/1.1);
+    return {supply,tax:base-supply,total:base};
+  }
+  const supply=base;
+  const tax=Math.round(supply*0.1);
+  return {supply,tax,total:supply+tax};
 }
 
 // 실제 입출고일: movement_date가 있으면 우선 사용하고, 이전 자료는 created_at의 한국 날짜를 사용합니다.
@@ -1621,7 +1634,7 @@ function App(){
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><SortHead sortKey="name">상품</SortHead><SortHead sortKey="size">사이즈</SortHead><SortHead sortKey="color">색상</SortHead><SortHead sortKey="wholesale_price">도매가</SortHead><SortHead sortKey="vip_price">도매가(VIP)</SortHead><SortHead sortKey="vvip_price">도매가(VVIP)</SortHead><SortHead sortKey="retail_price">소매가</SortHead><SortHead sortKey="quantity">재고</SortHead><SortHead sortKey="status">상태</SortHead><th></th></tr></thead>
+              <thead><tr><SortHead sortKey="name">상품</SortHead><SortHead sortKey="size">사이즈</SortHead><SortHead sortKey="color">색상</SortHead><SortHead sortKey="wholesale_price">도매가</SortHead><SortHead sortKey="vip_price">도매가(VIP)</SortHead><SortHead sortKey="vvip_price">도매가(VVIP)</SortHead><SortHead sortKey="retail_price">소매가(VAT포함)</SortHead><SortHead sortKey="quantity">재고</SortHead><SortHead sortKey="status">상태</SortHead><th></th></tr></thead>
               <tbody>
                 {filtered.map(p=><tr key={p.id}>
                   <td data-label="상품"><div className="product-cell">
@@ -1633,7 +1646,7 @@ function App(){
                   <td data-label="도매가">{formatWon(p.wholesale_price)}</td>
                   <td data-label="도매가(VIP)">{formatWon(p.vip_price)}</td>
                   <td data-label="도매가(VVIP)">{formatWon(p.vvip_price)}</td>
-                  <td data-label="소매가">{formatWon(p.retail_price)}</td>
+                  <td data-label="소매가(VAT포함)">{formatWon(p.retail_price)}</td>
                   <td data-label="재고"><b>{formatNumber(p.quantity)}</b> <small>/ 최소 {formatNumber(p.minimum_quantity)}</small></td>
                   <td data-label="상태"><Badge p={p}/></td>
                   <td data-label="관리"><div className="row-actions">
@@ -1875,7 +1888,7 @@ function ProductModal({value,onClose,onSaved}){
       <Field label="도매 단가" type="number" value={form.wholesale_price||0} set={v=>setForm({...form,wholesale_price:v})}/>
       <Field label="도매 단가(VIP)" type="number" value={form.vip_price||0} set={v=>setForm({...form,vip_price:v})}/>
       <Field label="도매 단가(VVIP)" type="number" value={form.vvip_price||0} set={v=>setForm({...form,vvip_price:v})}/>
-      <Field label="소매 단가" type="number" value={form.retail_price||0} set={v=>setForm({...form,retail_price:v})}/>
+      <Field label="소매 단가 (VAT 포함)" type="number" value={form.retail_price||0} set={v=>setForm({...form,retail_price:v})}/>
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
@@ -2099,7 +2112,7 @@ function CustomerModal({value,onClose,onSaved}){
       </div>
       <Field label="상세주소" value={form.address_detail||''} set={v=>setForm({...form,address_detail:v})} full/>
       <Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
-      <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','vip','vvip','retail']} labels={{wholesale:'도매가',vip:'도매가(VIP)',vvip:'도매가(VVIP)',retail:'소매가'}}/>
+      <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','vip','vvip','retail']} labels={{wholesale:'도매가(VAT별도)',vip:'도매가(VIP·VAT별도)',vvip:'도매가(VVIP·VAT별도)',retail:'소매가(VAT포함)'}}/>
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})}/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
@@ -2135,8 +2148,9 @@ function SalesDashboard({logs,products,customers}){
       const fallbackPrice=Number(productPriceByType(product,priceType))||0;
       const unitPrice=Number(log.unit_price||fallbackPrice)||0;
       const quantity=Number(log.quantity||0);
-      const amount=quantity*unitPrice;
-      return {id:log.id,date,customer:customer?.name||log.customer_name||'거래처 미지정',customerId:customer?.id||log.customer_id||null,customerRecord:customer||null,product:log.product_name||product?.name||'',quantity,unitPrice,amount,isReturn,sourceLog:log};
+      const vat=vatBreakdown(unitPrice,quantity,priceType);
+      const amount=vat.total;
+      return {id:log.id,date,customer:customer?.name||log.customer_name||'거래처 미지정',customerId:customer?.id||log.customer_id||null,customerRecord:customer||null,product:log.product_name||product?.name||'',quantity,unitPrice,priceType,supply:vat.supply,tax:vat.tax,amount,isReturn,sourceLog:log};
     }).filter(Boolean);
   },[logs,products,customers]);
 
@@ -2173,7 +2187,7 @@ function SalesDashboard({logs,products,customers}){
       const data=[['월','출고매출','반품금액','순매출','거래건수'],...yearlyReport.months.map(row=>[row.label,row.gross,row.returns,row.net,row.count])];
       downloadCsv(data,`${year}_연간매출.csv`); return;
     }
-    const data=[['날짜','구분','거래처','품목','수량','단가','금액'],...report.rows.map(row=>[row.date,row.isReturn?'반품':'출고',row.customer,row.product,row.isReturn?-row.quantity:row.quantity,row.unitPrice,row.isReturn?-row.amount:row.amount])];
+    const data=[['날짜','구분','거래처','품목','수량','단가','VAT기준','공급가액','부가세','합계금액'],...report.rows.map(row=>[row.date,row.isReturn?'반품':'출고',row.customer,row.product,row.isReturn?-row.quantity:row.quantity,row.unitPrice,row.priceType==='retail'?'VAT포함':'VAT별도',row.isReturn?-row.supply:row.supply,row.isReturn?-row.tax:row.tax,row.isReturn?-row.amount:row.amount])];
     downloadCsv(data,`${month}_월별매출.csv`);
   }
 
@@ -2198,14 +2212,14 @@ function SalesDashboard({logs,products,customers}){
     </div>
 
     {viewMode==='monthly'?<>
-      <div className="stats" style={{marginTop:18}}><SalesStat label="출고 매출" value={report.gross} suffix="원"/><SalesStat label="반품 금액" value={report.returns} suffix="원" danger={report.returns>0}/><SalesStat label="순매출" value={report.net} suffix="원"/><SalesStat label="거래 건수" value={report.rows.length} suffix="건"/></div>
+      <div className="stats" style={{marginTop:18}}><SalesStat label="출고 매출(VAT포함)" value={report.gross} suffix="원"/><SalesStat label="반품 금액" value={report.returns} suffix="원" danger={report.returns>0}/><SalesStat label="순매출(VAT포함)" value={report.net} suffix="원"/><SalesStat label="거래 건수" value={report.rows.length} suffix="건"/></div>
       <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>거래처</th><th>출고매출</th><th>반품액</th><th>순매출</th></tr></thead><tbody>{report.byCustomer.map(row=><tr key={row.customer}><td data-label="거래처"><b>{row.customer}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td></tr>)}{!report.byCustomer.length&&<tr><td colSpan="4"><Empty text="선택한 달의 매출내역이 없습니다."/></td></tr>}</tbody></table></div>
-      <div className="table-wrap" style={{marginTop:22}}><table><thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>금액</th><th>명세표</th></tr></thead><tbody>{report.rows.map(row=><tr key={row.id}><td data-label="날짜">{row.date}</td><td data-label="구분"><b style={{color:row.isReturn?'#d92d20':'inherit'}}>{row.isReturn?'반품':'출고'}</b></td><td data-label="거래처">{row.customer}</td><td data-label="품목">{row.product}</td><td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td><td data-label="단가">{row.unitPrice.toLocaleString()}원</td><td data-label="금액"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td><td data-label="명세표"><button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap',color:row.isReturn?'#d92d20':undefined,borderColor:row.isReturn?'#fecdca':undefined}}><Printer size={14}/>{row.isReturn?'반품 명세표':'명세표'}</button></td></tr>)}{!report.rows.length&&<tr><td colSpan="8"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}</tbody></table></div>
+      <div className="table-wrap" style={{marginTop:22}}><table><thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>VAT</th><th>공급가액</th><th>부가세</th><th>합계</th><th>명세표</th></tr></thead><tbody>{report.rows.map(row=><tr key={row.id}><td data-label="날짜">{row.date}</td><td data-label="구분"><b style={{color:row.isReturn?'#d92d20':'inherit'}}>{row.isReturn?'반품':'출고'}</b></td><td data-label="거래처">{row.customer}</td><td data-label="품목">{row.product}</td><td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td><td data-label="단가">{row.unitPrice.toLocaleString()}원</td><td data-label="VAT">{row.priceType==='retail'?'포함':'별도'}</td><td data-label="공급가액">{row.isReturn?'-':''}{row.supply.toLocaleString()}원</td><td data-label="부가세">{row.isReturn?'-':''}{row.tax.toLocaleString()}원</td><td data-label="합계"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td><td data-label="명세표"><button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap',color:row.isReturn?'#d92d20':undefined,borderColor:row.isReturn?'#fecdca':undefined}}><Printer size={14}/>{row.isReturn?'반품 명세표':'명세표'}</button></td></tr>)}{!report.rows.length&&<tr><td colSpan="11"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}</tbody></table></div>
     </>:<>
-      <div className="stats" style={{marginTop:18}}><SalesStat label="연간 출고매출" value={yearlyReport.gross} suffix="원"/><SalesStat label="연간 반품금액" value={yearlyReport.returns} suffix="원" danger={yearlyReport.returns>0}/><SalesStat label="연간 순매출" value={yearlyReport.net} suffix="원"/><SalesStat label="연간 거래 건수" value={yearlyReport.count} suffix="건"/></div>
+      <div className="stats" style={{marginTop:18}}><SalesStat label="연간 출고매출(VAT포함)" value={yearlyReport.gross} suffix="원"/><SalesStat label="연간 반품금액" value={yearlyReport.returns} suffix="원" danger={yearlyReport.returns>0}/><SalesStat label="연간 순매출(VAT포함)" value={yearlyReport.net} suffix="원"/><SalesStat label="연간 거래 건수" value={yearlyReport.count} suffix="건"/></div>
       <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>월</th><th>출고매출</th><th>반품금액</th><th>순매출</th><th>거래 건수</th></tr></thead><tbody>{yearlyReport.months.map(row=><tr key={row.month}><td data-label="월"><b>{row.label}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품금액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td><td data-label="거래 건수">{row.count.toLocaleString()}건</td></tr>)}</tbody></table></div>
     </>}
-    <p style={{margin:'14px 2px 0',fontSize:12,color:'#667085'}}>과거 기록에 저장 단가가 없는 경우 현재 상품 단가와 거래처의 도매·소매 설정을 기준으로 계산됩니다.</p>
+    <p style={{margin:'14px 2px 0',fontSize:12,color:'#667085'}}>VAT 기준: 도매·VIP·VVIP 단가는 VAT 별도, 소매가는 VAT 포함으로 계산합니다. 과거 기록에 저장 단가가 없는 경우 현재 상품 단가와 거래처 단가 설정을 기준으로 계산됩니다.</p>
   </section>{invoiceData&&<InvoiceModal customer={invoiceData.customer} products={products} logs={invoiceData.logs} onClose={()=>setInvoiceData(null)}/>}</>;
 }
 
@@ -3021,9 +3035,14 @@ function InvoiceModal({customer,logs,products,onClose}){
     setArchiveOpen(false);
   }
   function deleteInvoice(id){if(!confirm('저장된 거래명세표를 삭제할까요?'))return;const next=savedInvoices.filter(invoice=>invoice.id!==id);setSavedInvoices(next);localStorage.setItem('oto_saved_invoices',JSON.stringify(next))}
-  const supplyTotal=items.reduce((sum,item)=>sum+Number(item.quantity||0)*Number(item.unitPrice||0),0);
-  const taxTotal=items.reduce((sum,item)=>sum+Math.round(Number(item.quantity||0)*Number(item.unitPrice||0)*Number(item.taxRate||0)/100),0);
-  const grandTotal=supplyTotal+taxTotal;
+  const invoiceTotals=items.reduce((acc,item)=>{
+    const vat=vatBreakdown(item.unitPrice,item.quantity,priceType);
+    acc.supply+=vat.supply; acc.tax+=vat.tax; acc.total+=vat.total;
+    return acc;
+  },{supply:0,tax:0,total:0});
+  const supplyTotal=invoiceTotals.supply;
+  const taxTotal=invoiceTotals.tax;
+  const grandTotal=invoiceTotals.total;
   const fmt=value=>Number(value||0).toLocaleString('ko-KR');
   const parseMoney=value=>String(value??'').replace(/[^0-9.-]/g,'');
 
@@ -3050,7 +3069,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       <tr><th>전화</th><td colSpan="3">{invoiceCustomer.phone||''}</td><th>전화</th><td><input {...inputProps(supplier.phone,e=>updateSupplier('phone',e.target.value))}/></td><th>팩스</th><td><input {...inputProps(supplier.fax||'',e=>updateSupplier('fax',e.target.value))}/></td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
       <table className="invoice-items"><colgroup><col className="invoice-col-month"/><col className="invoice-col-day"/><col className="invoice-col-item"/><col className="invoice-col-qty"/><col className="invoice-col-unit"/><col className="invoice-col-supply"/><col className="invoice-col-tax"/></colgroup><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
-      {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const supply=Number(item.quantity||0)*Number(item.unitPrice||0);const tax=Math.round(supply*Number(item.taxRate||0)/100);return <tr key={item.id}>
+      {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const vat=vatBreakdown(item.unitPrice,item.quantity,priceType);const supply=vat.supply;const tax=vat.tax;return <tr key={item.id}>
         <td><input {...inputProps(d[1]||'',e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`))}/></td>
         <td><input {...inputProps(d[2]||'',e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`))}/></td>
         <td style={{position:'relative'}}><input style={{paddingRight:24}} {...inputProps(item.name,e=>updateItem(index,'name',e.target.value))}/>{editable&&<button type="button" className="invoice-delete no-print" title="이 품목 삭제" aria-label="이 품목 삭제" style={{position:'absolute',right:3,top:'50%',transform:'translateY(-50%)',width:24,height:24,padding:0,border:'none',background:'transparent',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>{if(items.length<=1){window.alert('거래명세표에는 품목이 최소 1개 필요합니다.');return;}setItems(current=>current.filter((_,i)=>i!==index));}}><Trash2 size={15}/></button>}</td>
@@ -3089,10 +3108,10 @@ function InvoiceModal({customer,logs,products,onClose}){
         <label className="price-type-control">
           <span>단가</span>
           <select value={priceType} onChange={e=>applyPriceType(e.target.value)}>
-            <option value="wholesale">도매가</option>
-            <option value="vip">도매가(VIP)</option>
-            <option value="vvip">도매가(VVIP)</option>
-            <option value="retail">소매가</option>
+            <option value="wholesale">도매가 (VAT 별도)</option>
+            <option value="vip">도매가(VIP) (VAT 별도)</option>
+            <option value="vvip">도매가(VVIP) (VAT 별도)</option>
+            <option value="retail">소매가 (VAT 포함)</option>
           </select>
         </label>
       </div>
