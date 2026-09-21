@@ -1559,7 +1559,7 @@ function App(){
 
   // 첫 화면 요약: 전체 재고 수량 대신 이번 달 순매출(VAT 포함)을 표시합니다.
   // 매출 탭과 동일하게 출고 금액에서 반품 금액을 차감합니다.
-  const currentMonthNetSales=useMemo(()=>{
+  const currentMonthNetSales=(()=>{
     const currentMonth=today.slice(0,7);
     const productMap=new Map(products.map(product=>[String(product.id),product]));
     const customerMap=new Map(customers.map(customer=>[String(customer.id),customer]));
@@ -1584,7 +1584,7 @@ function App(){
 
       return total+(isReturn?-amount:amount);
     },0);
-  },[logs,products,customers,today]);
+  })();
 
   const filtered=products
     .filter(p=>[p.name,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()))
@@ -1636,7 +1636,7 @@ function App(){
 
       <section className="stats">
         <Stat label="등록 상품" value={products.length}/>
-        <Stat label="이번 달 순매출" value={`${formatNumber(currentMonthNetSales)}원`}/>
+        <Stat label="이번 달 순매출" value={currentMonthNetSales} suffix="원"/>
         <Stat label="부족 재고" value={products.filter(p=>Number(p.quantity)<=Number(p.minimum_quantity)).length} danger/>
         <Stat label="오늘 출고" value={logs.filter(l=>l.movement_type==='out'&&stockLogDate(l)===today).length}/>
       </section>
@@ -1802,7 +1802,7 @@ function Login(){
   </form></div>;
 }
 
-function Stat({label,value,danger}){return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{formatNumber(value)}</strong></div>}
+function Stat({label,value,danger,suffix=''}){return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{formatNumber(value)}{suffix}</strong></div>}
 function SalesStat({label,value,suffix='',danger}){
   const number=Number(value);
   const safeValue=Number.isFinite(number)?number:0;
