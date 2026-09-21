@@ -1638,7 +1638,7 @@ function App(){
         <Stat label="등록 상품" value={products.length}/>
         <Stat label="이번 달 순매출" value={`${formatNumber(currentMonthNetSales)}원`}/>
         <Stat label="부족 재고" value={products.filter(p=>Number(p.quantity)<=Number(p.minimum_quantity)).length} danger/>
-        <Stat label="오늘 입출고" value={logs.filter(l=>stockLogDate(l)===today).length}/>
+        <Stat label="오늘 출고" value={logs.filter(l=>l.movement_type==='out'&&stockLogDate(l)===today).length}/>
       </section>
 
       <nav>
