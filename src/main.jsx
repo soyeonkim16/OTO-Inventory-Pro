@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.0';
+const APP_VERSION='6.6.1';
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1162,7 +1162,7 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_KEY,{
 });
 
 const emptyProduct={name:'',category:'사육장',size:'없음',color:'없음',quantity:0,minimum_quantity:5,wholesale_price:0,vip_price:0,vvip_price:0,retail_price:0,memo:'',image_url:null};
-const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',price_type:'wholesale',memo:''};
+const emptyCustomer={name:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',price_type:'wholesale',customer_type:'business',memo:''};
 const courierOptions=['','CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
 const RECEIVABLE_STORAGE_KEY='oto_receivable_entries';
 
@@ -1919,6 +1919,7 @@ function ProductModal({value,onClose,onSaved}){
       <Field label="도매 단가(VIP)" type="number" value={form.vip_price||0} set={v=>setForm({...form,vip_price:v})}/>
       <Field label="도매 단가(VVIP)" type="number" value={form.vvip_price||0} set={v=>setForm({...form,vvip_price:v})}/>
       <Field label="소매 단가 (VAT 포함)" type="number" value={form.retail_price||0} set={v=>setForm({...form,retail_price:v})}/>
+      </>}
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
@@ -2124,18 +2125,19 @@ function CustomerModal({value,onClose,onSaved}){
     if(saving)return;
     setSaving(true);setError('');
     try{
-      const payload={name:form.name.trim(),recipient_name:form.recipient_name?.trim()||null,phone:form.phone?.trim()||null,postal_code:form.postal_code||null,address:form.address||null,address_detail:form.address_detail?.trim()||null,courier:form.courier||null,price_type:form.price_type||'wholesale',memo:form.memo?.trim()||null};
+      const payload={name:form.name.trim(),recipient_name:form.recipient_name?.trim()||null,phone:form.phone?.trim()||null,postal_code:form.postal_code||null,address:form.address||null,address_detail:form.address_detail?.trim()||null,courier:form.courier||null,price_type:form.customer_type==='personal'?'retail':(form.price_type||'wholesale'),customer_type:form.customer_type||'business',memo:form.memo?.trim()||null};
       const result=form.id?await supabase.from('customers').update(payload).eq('id',form.id):await supabase.from('customers').insert(payload);
       if(result.error)throw result.error;
       onSaved();
     }catch(e){setError(normalizeError(e))}finally{setSaving(false)}
   }
-  return <Modal title={form.id?'거래처 수정':'거래처 등록'} onClose={onClose}>
+  return <Modal title={form.id?'고객 수정':'고객 등록'} onClose={onClose}>
     <form onSubmit={save} className="form-grid">
-      <Field label="거래처명" value={form.name} set={v=>setForm({...form,name:v})} full/>
-      <Field label="받는 사람" value={form.recipient_name||''} set={v=>setForm({...form,recipient_name:v})}/>
+      <Select label="고객 유형" value={form.customer_type||'business'} set={v=>setForm({...form,customer_type:v,price_type:v==='personal'?'retail':(form.price_type==='retail'?'wholesale':form.price_type)})} options={['business','personal']} labels={{business:'도매 거래처',personal:'개인고객'}}/>
+      <Field label={form.customer_type==='personal'?'고객명 / 닉네임':'거래처명'} value={form.name} set={v=>setForm({...form,name:v})} full/>
+      {form.customer_type!=='personal'&&<Field label="받는 사람" value={form.recipient_name||''} set={v=>setForm({...form,recipient_name:v})}/>}
       <Field label="연락처" value={form.phone||''} set={v=>setForm({...form,phone:v})}/>
-      <div className="full address">
+      {form.customer_type!=='personal'&&<><div className="full address">
         <label>우편번호<input value={form.postal_code||''} readOnly/></label>
         <label>주소<input value={form.address||''} readOnly/></label>
         <button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button>
@@ -2143,6 +2145,7 @@ function CustomerModal({value,onClose,onSaved}){
       <Field label="상세주소" value={form.address_detail||''} set={v=>setForm({...form,address_detail:v})} full/>
       <Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
       <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','vip','vvip','retail']} labels={{wholesale:'도매가(VAT별도)',vip:'도매가(VIP·VAT별도)',vvip:'도매가(VVIP·VAT별도)',retail:'소매가(VAT포함)'}}/>
+      </>}
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})}/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
@@ -2372,6 +2375,7 @@ function ReceivableModal({customer,mode,user,onClose,onSaved,initialAmount='',in
 
 function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,onAdd,onEdit,onDelete}){
   const [query,setQuery]=useState('');
+  const [customerFilter,setCustomerFilter]=useState('all');
   const [selectedId,setSelectedId]=useState('');
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
@@ -2487,7 +2491,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
   },[customers,logs,products]);
 
   const rows=useMemo(()=>{
-    const filtered=customers.filter(c=>[c.name,c.recipient_name,c.phone,c.address,c.address_detail].join(' ').toLowerCase().includes(query.toLowerCase()));
+    const filtered=customers.filter(c=>(customerFilter==='all'||(c.customer_type||'business')===customerFilter)&&[c.name,c.recipient_name,c.phone,c.address,c.address_detail].join(' ').toLowerCase().includes(query.toLowerCase()));
     return [...filtered].sort((a,b)=>{
       const aStats=customerStats[a.id]||{totalAmount:0,lastOut:''};
       const bStats=customerStats[b.id]||{totalAmount:0,lastOut:''};
@@ -2498,7 +2502,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
       const result=typeof av==='number'?av-bv:av.localeCompare(bv,'ko',{numeric:true,sensitivity:'base'});
       return sort.direction==='asc'?result:-result;
     });
-  },[customers,query,sort,customerStats]);
+  },[customers,query,sort,customerStats,customerFilter]);
 
   function changeSort(key){setSort(current=>current.key===key?{key,direction:current.direction==='asc'?'desc':'asc'}:{key,direction:'asc'})}
   function sortMark(key){if(sort.key!==key)return '↕';return sort.direction==='asc'?'▲':'▼'}
@@ -2655,10 +2659,10 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
 
   return <section className="panel customer-panel">
     <div className="tab-intro">
-      <div className="tab-intro-text"><h3>거래처 관리</h3><p>거래처 정보와 거래내역, 미수금을 확인하고 관리할 수 있습니다.</p></div>
-      <div className="tab-intro-actions">{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>거래처 등록</button>}</div>
+      <div className="tab-intro-text"><h3>고객 관리</h3><p>도매 거래처와 개인고객의 구매내역을 구분하여 관리합니다.</p></div>
+      <div className="tab-intro-actions">{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>고객 등록</button>}</div>
     </div>
-    <div className="toolbar"><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="거래처명, 받는 사람, 연락처 검색"/></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button></div></div>
+    <div className="toolbar"><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><select aria-label="고객 유형 필터" value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)}><option value="all">전체 고객</option><option value="personal">개인고객</option><option value="business">도매 거래처</option></select><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명, 받는 사람, 연락처 검색"/></div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button></div></div>
     {receivableError&&<div className="error" style={{marginBottom:12}}>미수금 불러오기 실패: {receivableError}<br/><small>먼저 제공된 Supabase SQL을 실행했는지 확인하세요.</small></div>}
     <div className="customer-layout">
       <div className="customer-list-area">
