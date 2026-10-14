@@ -1919,7 +1919,6 @@ function ProductModal({value,onClose,onSaved}){
       <Field label="도매 단가(VIP)" type="number" value={form.vip_price||0} set={v=>setForm({...form,vip_price:v})}/>
       <Field label="도매 단가(VVIP)" type="number" value={form.vvip_price||0} set={v=>setForm({...form,vvip_price:v})}/>
       <Field label="소매 단가 (VAT 포함)" type="number" value={form.retail_price||0} set={v=>setForm({...form,retail_price:v})}/>
-      </>}
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
