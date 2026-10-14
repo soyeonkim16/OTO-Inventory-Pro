@@ -1691,7 +1691,7 @@ function App(){
         </section>
       }
 
-      {tab==='logs'&&<Logs logs={logs} products={products} customers={customers} isAdmin={isAdmin} onMove={setMoveModal} onDelete={deleteStockLog} onDateChange={updateStockLogDate}/>}
+      {tab==='logs'&&<Logs logs={logs} products={products} customers={customers} isAdmin={isAdmin} onMove={(product,initialType='out')=>setMoveModal(product==='__batch__'?'__batch__':{product,initialType})} onDelete={deleteStockLog} onDateChange={updateStockLogDate}/>}
       {tab==='customers'&&<Customers customers={customers} products={products} logs={logs} isAdmin={isAdmin} profile={profile} user={session.user} onReturnSaved={applyMovementSaved} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
       {tab==='sales'&&<SalesDashboard logs={logs} products={products} customers={customers}/>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
@@ -1708,7 +1708,8 @@ function App(){
       onClose={()=>setMoveModal(null)}
       onSaved={applyMovementSaved}
     />:moveModal&&<MoveModal
-      product={moveModal}
+      product={moveModal.product}
+      initialType={moveModal.initialType}
       customers={customers}
       profile={profile}
       user={session.user}
@@ -1928,8 +1929,8 @@ function ProductModal({value,onClose,onSaved}){
 
 const purchaseChannelOptions=['','네이버 스마트스토어','쿠팡','OTO 공식몰','박람회','매장 방문','기타'];
 
-function MoveModal({product,customers,profile,user,onClose,onSaved}){
-  const [form,setForm]=useState({type:'out',qty:1,movement_date:new Date().toLocaleDateString('en-CA'),customer_id:'',purchase_channel:'',purchase_channel_other:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',tracking:'',order:'',memo:'',payment_status:'paid',receivable_amount:''});
+function MoveModal({product,initialType='out',customers,profile,user,onClose,onSaved}){
+  const [form,setForm]=useState({type:initialType,qty:1,movement_date:new Date().toLocaleDateString('en-CA'),customer_id:'',purchase_channel:'',purchase_channel_other:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',tracking:'',order:'',memo:'',payment_status:'paid',receivable_amount:''});
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
 
@@ -3451,7 +3452,8 @@ function EmployeeCreateModal({onClose,onCreate}){
 }
 
 function Logs({logs,products,customers,isAdmin,onMove,onDelete,onDateChange}){
-  const [selectedProductId,setSelectedProductId]=useState('');
+  const [inProductId,setInProductId]=useState('');
+  const [outProductId,setOutProductId]=useState('');
   const [detailProduct,setDetailProduct]=useState(null);
   const [query,setQuery]=useState('');
   const [type,setType]=useState('');
@@ -3500,32 +3502,30 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onDateChange}){
     downloadCsv(data,`OTO_입출고_${new Date().toISOString().slice(0,10)}.csv`);
   }
 
-  const selectedProduct=products.find(product=>product.id===selectedProductId)||null;
+  const selectedInProduct=products.find(product=>String(product.id)===String(inProductId))||null;
+  const selectedOutProduct=products.find(product=>String(product.id)===String(outProductId))||null;
 
   return <section className="panel">
-    <div className="movement-entry">
-      <div>
-        <h3 className="panel-title">입출고 등록</h3>
-        <p>상품을 선택한 뒤 입고 또는 출고 내용을 입력하세요.</p>
-      </div>
-      <div className="movement-entry-controls">
-        <select value={selectedProductId} onChange={event=>setSelectedProductId(event.target.value)}>
-          <option value="">상품 선택</option>
-          {products.map(product=>
-            <option key={product.id} value={product.id}>
-              {product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {formatNumber(product.quantity)}
-            </option>
-          )}
+    <div className="oto-movement-two-column" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:14,padding:16,borderBottom:'1px solid #e4e7ec'}}>
+      <div style={{minWidth:0,padding:18,border:'1px solid #d1e9d9',borderRadius:12,background:'#f7fdf9'}}>
+        <h3 style={{margin:'0 0 6px',color:'#067647'}}>입고 등록</h3>
+        <p style={{margin:'0 0 14px',fontSize:12,color:'#667085'}}>입고할 상품을 선택하세요.</p>
+        <select aria-label="입고 상품 선택" style={{width:'100%',height:42,borderRadius:9,border:'1px solid #d0d5dd',background:'#fff',padding:'0 10px'}} value={inProductId} onChange={e=>setInProductId(e.target.value)}>
+          <option value="">입고 상품 선택</option>
+          {products.map(product=><option key={product.id} value={product.id}>{product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {formatNumber(product.quantity)}</option>)}
         </select>
-        <button
-          className="primary"
-          disabled={!selectedProduct}
-          onClick={()=>selectedProduct&&onMove(selectedProduct)}
-        >
-          <Plus size={18}/>입출고 등록
-        </button>
-        <button className="ghost" onClick={()=>onMove('__batch__')}>+ 여러 상품 등록</button>
+        <button className="primary" style={{width:'100%',marginTop:12,justifyContent:'center'}} disabled={!selectedInProduct} onClick={()=>selectedInProduct&&onMove(selectedInProduct,'in')}><Plus size={18}/>입고 등록</button>
       </div>
+      <div style={{minWidth:0,padding:18,border:'1px solid #d6e4ff',borderRadius:12,background:'#f7faff'}}>
+        <h3 style={{margin:'0 0 6px',color:'#155eef'}}>출고 등록</h3>
+        <p style={{margin:'0 0 14px',fontSize:12,color:'#667085'}}>출고할 상품을 선택하세요. 고객별 구매처도 기록할 수 있습니다.</p>
+        <select aria-label="출고 상품 선택" style={{width:'100%',height:42,borderRadius:9,border:'1px solid #d0d5dd',background:'#fff',padding:'0 10px'}} value={outProductId} onChange={e=>setOutProductId(e.target.value)}>
+          <option value="">출고 상품 선택</option>
+          {products.map(product=><option key={product.id} value={product.id}>{product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {formatNumber(product.quantity)}</option>)}
+        </select>
+        <button className="primary" style={{width:'100%',marginTop:12,justifyContent:'center'}} disabled={!selectedOutProduct} onClick={()=>selectedOutProduct&&onMove(selectedOutProduct,'out')}><Plus size={18}/>출고 등록</button>
+      </div>
+      <div style={{gridColumn:'1 / -1',display:'flex',justifyContent:'flex-end'}}><button className="ghost" onClick={()=>onMove('__batch__')}>+ 여러 상품 등록 (입고·출고·반품)</button></div>
     </div>
     <div className="log-filter">
       <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품, 거래처, 송장번호, 담당자 검색"/></div>
