@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.1';
+const APP_VERSION='6.6.2';
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1926,8 +1926,10 @@ function ProductModal({value,onClose,onSaved}){
   </Modal>;
 }
 
+const purchaseChannelOptions=['','네이버 스마트스토어','쿠팡','OTO 공식몰','박람회','매장 방문','기타'];
+
 function MoveModal({product,customers,profile,user,onClose,onSaved}){
-  const [form,setForm]=useState({type:'out',qty:1,movement_date:new Date().toLocaleDateString('en-CA'),customer_id:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',tracking:'',order:'',memo:'',payment_status:'paid',receivable_amount:''});
+  const [form,setForm]=useState({type:'out',qty:1,movement_date:new Date().toLocaleDateString('en-CA'),customer_id:'',purchase_channel:'',purchase_channel_other:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',tracking:'',order:'',memo:'',payment_status:'paid',receivable_amount:''});
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
 
@@ -1948,6 +1950,8 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
       setError(form.type==='return'?'반품 거래처를 선택하세요.':'출고 거래처를 선택하세요.');
       return;
     }
+    const personal=customers.find(c=>String(c.id)===String(form.customer_id))?.customer_type==='personal';
+    if(personal&&(form.type==='out'||form.type==='return')&&(!form.purchase_channel||(form.purchase_channel==='기타'&&!form.purchase_channel_other.trim()))){setError('개인고객의 구매처를 선택하세요.');return;}
     setSaving(true);setError('');
     try{
       const isReturn=form.type==='return';
@@ -1988,9 +1992,9 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
       if(!findLogError&&createdRows?.[0]?.id){
         const {error:dateError}=await supabase
           .from('stock_logs')
-          .update({movement_date:form.movement_date})
+          .update({movement_date:form.movement_date,...(personal?{purchase_channel:form.purchase_channel==='기타'?form.purchase_channel_other.trim():form.purchase_channel}:{})})
           .eq('id',createdRows[0].id);
-        if(dateError)window.alert('입출고 처리는 완료되었지만 처리일 저장에 실패했습니다. 입출고 내역에서 날짜를 다시 수정해주세요.');
+        if(dateError)throw new Error('입출고는 완료되었지만 처리일/구매처 저장에 실패했습니다: '+dateError.message);
       }
 
       const selectedCustomer=customers.find(c=>c.id===form.customer_id);
@@ -2035,6 +2039,8 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
   }
 
   const needsCustomer=form.type==='out'||form.type==='return';
+  const selectedCustomer=customers.find(c=>String(c.id)===String(form.customer_id));
+  const personalPurchase=selectedCustomer?.customer_type==='personal';
 
   return <Modal title={`${product.name} 입출고`} onClose={onClose}>
     <form onSubmit={save} className="form-grid">
@@ -2043,7 +2049,8 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
       <Field label={form.type==='out'?'출고일':form.type==='return'?'반품일':'입고일'} type="date" value={form.movement_date} set={v=>setForm({...form,movement_date:v})}/>
       {needsCustomer&&<>
         <Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pick} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/>
-        <Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/>
+        {personalPurchase&&<><Select label="구매처" value={form.purchase_channel} set={v=>setForm({...form,purchase_channel:v,purchase_channel_other:v==='기타'?form.purchase_channel_other:''})} options={purchaseChannelOptions} labels={{'':'구매처 선택'}}/>{form.purchase_channel==='기타'&&<Field label="기타 구매처" value={form.purchase_channel_other} set={v=>setForm({...form,purchase_channel_other:v})}/>}</>}
+        <Field label="받는 사람 value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/>
         <Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/>
         <div className="full address">
           <label>우편번호<input value={form.postal_code} readOnly/></label>
@@ -2073,7 +2080,7 @@ function MoveModal({product,customers,profile,user,onClose,onSaved}){
 
 function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
   const today=new Date().toLocaleDateString('en-CA');
-  const [form,setForm]=useState({type:'out',movement_date:today,customer_id:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',tracking:'',order:'',memo:'',payment_status:'paid'});
+  const [form,setForm]=useState({type:'out',movement_date:today,customer_id:'',purchase_channel:'',purchase_channel_other:'',recipient_name:'',phone:'',postal_code:'',address:'',address_detail:'',courier:'',tracking:'',order:'',memo:'',payment_status:'paid'});
   const [items,setItems]=useState([{product_id:'',qty:1}]);
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
@@ -2089,6 +2096,8 @@ function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
     if(!valid.length){setError('상품을 1개 이상 선택하세요.');return}
     if((form.type==='out'||form.type==='return')&&!form.customer_id){setError(form.type==='return'?'반품 거래처를 선택하세요.':'출고 거래처를 선택하세요.');return}
     for(const item of valid){const p=products.find(x=>String(x.id)===String(item.product_id));if(form.type==='out'&&String(p?.category||'').trim()!=='택배비'&&Number(item.qty)>Number(p?.quantity||0)){setError(`${p?.name||'상품'}의 현재 재고보다 많이 출고할 수 없습니다.`);return}}
+    const personal=customer?.customer_type==='personal';
+    if(personal&&(form.type==='out'||form.type==='return')&&(!form.purchase_channel||(form.purchase_channel==='기타'&&!form.purchase_channel_other.trim()))){setError('개인고객의 구매처를 선택하세요.');return;}
     setSaving(true);setError('');
     try{
       const batchToken=`BATCH-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
@@ -2099,7 +2108,7 @@ function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
         const {error:rpcError}=await supabase.rpc('process_stock_movement',{p_product_id:p.id,p_type:isReturn?'in':form.type,p_quantity:Number(item.qty),p_user_id:user.id,p_staff_name:profile.name,p_customer_id:form.customer_id||null,p_customer_name:customer?.name||null,p_recipient_name:form.recipient_name||null,p_destination:form.address||null,p_destination_postal_code:form.postal_code||null,p_destination_detail:form.address_detail||null,p_recipient_phone:form.phone||null,p_courier:form.courier||null,p_tracking_number:form.tracking||null,p_order_number:form.order||null,p_memo:storedMemo||null});
         if(rpcError)throw rpcError;
         const {data:rows}=await supabase.from('stock_logs').select('id').eq('product_id',p.id).eq('user_id',user.id).eq('movement_type',isReturn?'in':form.type).order('created_at',{ascending:false}).limit(1);
-        if(rows?.[0]?.id){const {error:dateError}=await supabase.from('stock_logs').update({movement_date:form.movement_date}).eq('id',rows[0].id);if(dateError)throw dateError;}
+        if(rows?.[0]?.id){const {error:dateError}=await supabase.from('stock_logs').update({movement_date:form.movement_date,...(personal?{purchase_channel:form.purchase_channel==='기타'?form.purchase_channel_other.trim():form.purchase_channel}:{})}).eq('id',rows[0].id);if(dateError)throw dateError;}
         onSaved({product_id:p.id,product_name:p.name,type:form.type,quantity:Number(item.qty),customer_id:form.customer_id||null,customer_name:customer?.name||null,recipient_name:form.recipient_name||null,destination:form.address||null,destination_detail:form.address_detail||null,courier:form.courier||null,tracking_number:form.tracking||null,order_number:form.order||null,memo:storedMemo||null,movement_date:form.movement_date,keepModal:true});
       }
       if(form.type==='out'&&form.payment_status==='credit'&&totalAmount>0){const {error:r}=await supabase.from('receivable_entries').insert({customer_id:customer.id,customer_name:customer.name,entry_type:'charge',amount:totalAmount,entry_date:form.movement_date,method:'출고 외상',memo:[`${valid.length}개 상품 일괄출고`,form.order?`주문번호 ${form.order}`:'',form.memo||''].filter(Boolean).join(' · '),source:'stock_out',created_by:user.id});if(r)throw new Error('출고는 처리되었지만 미수금 저장에 실패했습니다: '+r.message)}
@@ -2110,7 +2119,7 @@ function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
     <Select label="구분" value={form.type} set={v=>setForm({...form,type:v})} options={['in','out','return']} labels={{in:'입고',out:'출고',return:'반품'}}/>
     <Field label={form.type==='out'?'출고일':form.type==='return'?'반품일':'입고일'} type="date" value={form.movement_date} set={v=>setForm({...form,movement_date:v})}/>
     <div className="full" style={{display:'grid',gap:8}}><b>상품 / 수량</b>{items.map((item,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 120px 70px',gap:8}}><select value={item.product_id} onChange={e=>updateItem(i,'product_id',e.target.value)}><option value="">상품 선택</option>{products.map(p=><option key={p.id} value={p.id}>{String(p.category||'').trim()==='택배비'?`${p.name} · ${formatWon(p.wholesale_price)} / 건`:`${p.name} · ${p.size||'없음'} · ${p.color||'없음'} · 재고 ${formatNumber(p.quantity)}`}</option>)}</select><input type="number" min="1" value={item.qty} onChange={e=>updateItem(i,'qty',e.target.value)}/><button type="button" className="ghost" onClick={()=>removeItem(i)}>삭제</button></div>)}<button type="button" className="ghost" onClick={addItem}>+ 상품 추가</button></div>
-    {(form.type==='out'||form.type==='return')&&<><Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pickCustomer} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/><Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/><Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/><div className="full address"><label>우편번호<input value={form.postal_code} readOnly/></label><label>주소<input value={form.address} readOnly/></label><button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button></div><Field label="상세주소" value={form.address_detail} set={v=>setForm({...form,address_detail:v})} full/>{form.type==='out'&&<><Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/><Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/><Select label="결제상태" value={form.payment_status} set={v=>setForm({...form,payment_status:v})} options={['paid','credit']} labels={{paid:'결제완료',credit:'외상(미수)'}}/><div><small>등급 적용 예상금액</small><strong style={{display:'block',marginTop:6}}>{formatWon(totalAmount)}</strong></div></>}<Field label={form.type==='return'?'원주문번호':'주문번호'} value={form.order} set={v=>setForm({...form,order:v})}/></>}
+    {(form.type==='out'||form.type==='return')&&<><Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pickCustomer} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/>{customer?.customer_type==='personal'&&<><Select label="구매처" value={form.purchase_channel} set={v=>setForm({...form,purchase_channel:v,purchase_channel_other:v==='기타'?form.purchase_channel_other:''})} options={purchaseChannelOptions} labels={{'':'구매처 선택'}}/>{form.purchase_channel==='기타'&&<Field label="기타 구매처" value={form.purchase_channel_other} set={v=>setForm({...form,purchase_channel_other:v})}/>}</>}<Field label="받는 사람 value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/><Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/><div className="full address"><label>우편번호<input value={form.postal_code} readOnly/></label><label>주소<input value={form.address} readOnly/></label><button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button></div><Field label="상세주소" value={form.address_detail} set={v=>setForm({...form,address_detail:v})} full/>{form.type==='out'&&<><Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/><Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/><Select label="결제상태" value={form.payment_status} set={v=>setForm({...form,payment_status:v})} options={['paid','credit']} labels={{paid:'결제완료',credit:'외상(미수)'}}/><div><small>등급 적용 예상금액</small><strong style={{display:'block',marginTop:6}}>{formatWon(totalAmount)}</strong></div></>}<Field label={form.type==='return'?'원주문번호':'주문번호'} value={form.order} set={v=>setForm({...form,order:v})}/></>}
     <Field label={form.type==='return'?'반품 사유':'메모'} value={form.memo} set={v=>setForm({...form,memo:v})} full/>{error&&<div className="error full">{error}</div>}<button className="primary full" disabled={saving}>{saving?'처리 중…':form.type==='out'?`${items.filter(x=>x.product_id).length}개 상품 일괄 출고`:'일괄 처리'}</button>
   </form></Modal>;
 }
@@ -2538,7 +2547,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
       const returned=isReturnLog(log);
       // 같은 거래처의 같은 날짜 출고 상품은 주문번호와 관계없이 한 명세표로 묶습니다.
       // 반품은 출고와 합쳐지지 않도록 별도 그룹으로 유지합니다.
-      const key=`${returned?'return':'out'}|${date}`;
+      const key=`${returned?'return':'out'}|${date}|${String(log.purchase_channel||'')}`;
       if(!groups[key])groups[key]={key,date,returned,logs:[],total:0,orders:new Set()};
       groups[key].logs.push(log);
       groups[key].total+=Number(log.quantity||0);
@@ -2608,7 +2617,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
 
   function exportCustomerCsv(){
     if(!selected)return;
-    const data=[['처리일','구분','주문번호','거래처','품목','수량'],...transactionGroups.flatMap(group=>group.logs.map(log=>[stockLogDate(log),group.returned?'반품':'출고',log.order_number||'',selected.name,log.product_name,group.returned?-Number(log.quantity||0):Number(log.quantity||0)]))];
+    const data=[['처리일','구분','주문번호','거래처','구매처','품목','수량'],...transactionGroups.flatMap(group=>group.logs.map(log=>[stockLogDate(log),group.returned?'반품':'출고',log.order_number||'',selected.name,log.purchase_channel||'',log.product_name,group.returned?-Number(log.quantity||0):Number(log.quantity||0)]))];
     downloadCsv(data,`${selected.name}_거래내역_${new Date().toISOString().slice(0,10)}.csv`);
   }
 
@@ -2651,7 +2660,7 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
                 });
               }}
             >선택 입금처리</button></div>}
-            {transactionGroups.map(group=>{const groupAmount=transactionGroupAmount(group);const isSelected=selectedPaymentKeys.includes(group.key);return <article key={group.key} className={isSelected?'transaction-selected':''} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div style={{display:'flex',alignItems:'center',gap:9}}>{!group.returned&&<label className="transaction-select-box" title="이 거래를 입금처리 대상으로 선택"><input type="checkbox" checked={isSelected} onChange={()=>togglePaymentGroup(group.key)}/></label>}<div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.orderNumbers.length?`주문번호 ${group.orderNumbers.join(', ')}`:'주문번호 없음'}</small>{!group.returned&&<small style={{display:'block',marginTop:3,color:'#475467'}}>거래금액 {groupAmount.toLocaleString()}원</small>}</div></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=>{const returnedQty=group.returned?0:returnedForLog(log);const remaining=Math.max(0,Number(log.quantity||0)-returnedQty);return <div key={log.id} style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto auto',alignItems:'center',gap:8}}><span>{group.returned?'[반품] ':''}{log.product_name}{!group.returned&&returnedQty>0?<small style={{display:'block',color:'#d92d20',marginTop:2}}>반품 {returnedQty.toLocaleString()}개 · 잔여 {remaining.toLocaleString()}개</small>:null}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b>{!group.returned&&<button type="button" className="ghost" disabled={remaining<=0} onClick={()=>setReturnLog(log)} style={{padding:'6px 10px',fontSize:12,whiteSpace:'nowrap'}}>{remaining>0?'반품':'반품완료'}</button>}</div>})}</div></article>})}
+            {transactionGroups.map(group=>{const groupAmount=transactionGroupAmount(group);const isSelected=selectedPaymentKeys.includes(group.key);return <article key={group.key} className={isSelected?'transaction-selected':''} style={{borderLeft:group.returned?'4px solid #d92d20':'4px solid transparent'}}><div className="daily-shipment-head"><div style={{display:'flex',alignItems:'center',gap:9}}>{!group.returned&&<label className="transaction-select-box" title="이 거래를 입금처리 대상으로 선택"><input type="checkbox" checked={isSelected} onChange={()=>togglePaymentGroup(group.key)}/></label>}<div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small style={{display:'block',marginTop:4}}>{group.returned?'반품':'출고'} · {group.logs[0]?.purchase_channel?`구매처 ${group.logs[0].purchase_channel} · `:''}{group.orderNumbers.length?`주문번호 ${group.orderNumbers.join(', ')}`:'주문번호 없음'}</small>{!group.returned&&<small style={{display:'block',marginTop:3,color:'#475467'}}>거래금액 {groupAmount.toLocaleString()}원</small>}</div></div><div style={{display:'flex',alignItems:'center',gap:8}}><strong>{group.returned?'-':''}{group.total.toLocaleString()}개</strong><button className="invoice-open-button" onClick={()=>setInvoiceLogs(group.logs)}><Printer size={15}/>명세표</button></div></div><div className="daily-items">{group.logs.map(log=>{const returnedQty=group.returned?0:returnedForLog(log);const remaining=Math.max(0,Number(log.quantity||0)-returnedQty);return <div key={log.id} style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto auto',alignItems:'center',gap:8}}><span>{group.returned?'[반품] ':''}{log.product_name}{!group.returned&&returnedQty>0?<small style={{display:'block',color:'#d92d20',marginTop:2}}>반품 {returnedQty.toLocaleString()}개 · 잔여 {remaining.toLocaleString()}개</small>:null}</span><b>{group.returned?'-':''}{Number(log.quantity||0).toLocaleString()}개</b>{!group.returned&&<button type="button" className="ghost" disabled={remaining<=0} onClick={()=>setReturnLog(log)} style={{padding:'6px 10px',fontSize:12,whiteSpace:'nowrap'}}>{remaining>0?'반품':'반품완료'}</button>}</div>})}</div></article>})}
             {!transactionGroups.length&&<Empty text="선택한 기간의 거래내역이 없습니다."/>}
           </div>
   </div>:null;
@@ -3594,7 +3603,7 @@ function CustomerDetailModal({customer,products,logs,receivableEntries,onOpenInv
   const balance=(receivableEntries||[]).filter(entry=>String(entry.customerId||entry.customer_id||'')===String(customer.id)).reduce((sum,entry)=>sum+(entry.type==='payment'||entry.entry_type==='payment'?-1:1)*Number(entry.amount||0),0);
   const groups=useMemo(()=>{
     const map={};
-    customerLogs.forEach(log=>{const date=stockLogDate(log);const returned=isReturn(log);const key=`${returned?'return':'out'}|${date}`;(map[key]??={key,date,returned,logs:[],amount:0}).logs.push(log);map[key].amount+=amountFor(log)});
+    customerLogs.forEach(log=>{const date=stockLogDate(log);const returned=isReturn(log);const key=`${returned?'return':'out'}|${date}|${String(log.purchase_channel||'')}`;(map[key]??={key,date,returned,logs:[],amount:0}).logs.push(log);map[key].amount+=amountFor(log)});
     return Object.values(map).sort((a,b)=>b.date.localeCompare(a.date));
   },[customerLogs]);
   return <Modal title="거래처 상세보기" onClose={onClose}>
@@ -3602,7 +3611,7 @@ function CustomerDetailModal({customer,products,logs,receivableEntries,onOpenInv
     <div className="customer-contact-grid"><div><small>받는 사람</small><strong>{customer.recipient_name||'-'}</strong></div><div><small>연락처</small><strong>{customer.phone||'-'}</strong></div><div className="wide"><small>주소</small><strong>{[customer.postal_code&&`(${customer.postal_code})`,customer.address,customer.address_detail].filter(Boolean).join(' ')||'-'}</strong></div></div>
     <div className="detail-stat-grid customer-detail-stats"><div><small>총 거래금액</small><strong>{formatWon(totalAmount)}</strong></div><div><small>거래 건수</small><strong>{formatNumber(groups.length)}건</strong></div><div><small>최근 거래일</small><strong>{customerLogs[0]?stockLogDateKo(customerLogs[0]):'-'}</strong></div><div><small>미수금</small><strong className={balance>0?'danger-text':''}>{formatWon(Math.max(0,balance))}</strong></div></div>
     <div className="detail-section-title">최근 거래명세표</div>
-    <div className="customer-invoice-list">{groups.slice(0,10).map(group=><article key={group.key}><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small>{group.returned?'반품':'출고'} · {formatNumber(group.logs.length)}개 품목 · {formatWon(group.amount)}</small></div><button type="button" onClick={()=>onOpenInvoice(group.logs)}><Printer size={15}/>명세표</button></article>)}{!groups.length&&<Empty text="거래내역이 없습니다."/>}</div>
+    <div className="customer-invoice-list">{groups.slice(0,10).map(group=><article key={group.key}><div><b>{new Date(group.date+'T00:00:00').toLocaleDateString('ko-KR')}</b><small>{group.returned?'반품':'출고'} · {group.logs[0]?.purchase_channel?`구매처 ${group.logs[0].purchase_channel} · `:''}{formatNumber(group.logs.length)}개 품목 · {formatWon(group.amount)}</small></div><button type="button" onClick={()=>onOpenInvoice(group.logs)}><Printer size={15}/>명세표</button></article>)}{!groups.length&&<Empty text="거래내역이 없습니다."/>}</div>
   </Modal>;
 }
 
