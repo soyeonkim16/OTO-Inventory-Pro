@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.4';
+const APP_VERSION='6.6.5';
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1436,27 +1436,6 @@ function App(){
     }
   }
 
-  async function deleteStockLogsBatch(ids,resetAll=false){
-    if(profile?.role!=='admin')return;
-    if(!resetAll&&(!ids||!ids.length))return;
-    setLoading(true);
-    setError('');
-    try{
-      const {data,error}=await supabase.rpc('oto_admin_delete_stock_logs',{
-        p_ids:resetAll?null:ids,
-        p_reset_all:resetAll
-      });
-      if(error)throw error;
-      await loadAll({silent:true});
-      window.alert(`처리 완료: ${Number(data?.deleted_count||0).toLocaleString()}건 삭제${resetAll?' 및 실물 재고 0개 초기화':''}\n백업 ID: ${data?.backup_id||'확인 필요'}`);
-      return true;
-    }catch(e){
-      setError('입출고 일괄 삭제 실패: '+normalizeError(e)+' (Supabase SQL 설치 여부를 확인하세요.)');
-      window.alert('삭제 작업을 완료하지 못했습니다. 화면 상단 오류를 확인하세요.');
-      return false;
-    }finally{setLoading(false)}
-  }
-
   async function deleteCustomer(customer){
     const relatedLogs=logs.filter(log=>
       log.movement_type==='out' &&
@@ -1666,7 +1645,8 @@ function App(){
         {[
           ['inventory',Box,'재고'],
           ['logs',Truck,'입출고'],
-          ['customers',Users,'거래처'],
+          ['customers',Users,'도매처'],
+          ['personal',Users,'개인고객'],
           ['sales',BarChart3,'매출'],
           ...(isAdmin?[['employees',UserCog,'직원관리']]:[])
         ].map(([id,Icon,title])=>
@@ -1712,8 +1692,8 @@ function App(){
         </section>
       }
 
-      {tab==='logs'&&<Logs logs={logs} products={products} customers={customers} isAdmin={isAdmin} onMove={(product,initialType='out')=>setMoveModal(product==='__batch__'?'__batch__':{product,initialType})} onDelete={deleteStockLog} onBatchDelete={deleteStockLogsBatch} onDateChange={updateStockLogDate}/>}
-      {tab==='customers'&&<Customers customers={customers} products={products} logs={logs} isAdmin={isAdmin} profile={profile} user={session.user} onReturnSaved={applyMovementSaved} onAdd={()=>setCustomerModal(emptyCustomer)} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
+      {tab==='logs'&&<Logs logs={logs} products={products} customers={customers} isAdmin={isAdmin} onMove={(product,initialType='out')=>setMoveModal(product==='__batch__'?'__batch__':{product,initialType})} onDelete={deleteStockLog} onDateChange={updateStockLogDate}/>}
+      {(tab==='customers'||tab==='personal')&&<Customers key={tab} customerMode={tab==='personal'?'personal':'business'} customers={customers} products={products} logs={logs} isAdmin={isAdmin} profile={profile} user={session.user} onReturnSaved={applyMovementSaved} onAdd={()=>setCustomerModal({...emptyCustomer,customer_type:tab==='personal'?'personal':'business',price_type:tab==='personal'?'retail':'wholesale'})} onEdit={setCustomerModal} onDelete={deleteCustomer}/>}
       {tab==='sales'&&<SalesDashboard logs={logs} products={products} customers={customers}/>}
       {tab==='employees'&&isAdmin&&<EmployeeManagement session={session} currentUserId={session.user.id}/>}
 
@@ -2403,9 +2383,9 @@ function ReceivableModal({customer,mode,user,onClose,onSaved,initialAmount='',in
   return typeof document!=='undefined'?createPortal(modal,document.body):modal;
 }
 
-function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,onAdd,onEdit,onDelete}){
+function Customers({customerMode="business",customers,products,logs,isAdmin,profile,user,onReturnSaved,onAdd,onEdit,onDelete}){
   const [query,setQuery]=useState('');
-  const [customerFilter,setCustomerFilter]=useState('all');
+  const [customerFilter,setCustomerFilter]=useState(customerMode);
   const [selectedId,setSelectedId]=useState('');
   const [from,setFrom]=useState('');
   const [to,setTo]=useState('');
@@ -2689,15 +2669,15 @@ function Customers({customers,products,logs,isAdmin,profile,user,onReturnSaved,o
 
   return <section className="panel customer-panel">
     <div className="tab-intro">
-      <div className="tab-intro-text"><h3>고객 관리</h3><p>도매 거래처와 개인고객의 구매내역을 구분하여 관리합니다.</p></div>
-      <div className="tab-intro-actions">{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>고객 등록</button>}</div>
+      <div className="tab-intro-text"><h3>{customerMode==='personal'?'개인고객 관리':'도매처 관리'}</h3><p>{customerMode==='personal'?'개인고객의 구매내역과 입금 현황을 관리합니다.':'도매 거래처의 구매내역과 미수금 현황을 관리합니다.'}</p></div>
+      <div className="tab-intro-actions">{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>{customerMode==='personal'?'개인고객 등록':'도매처 등록'}</button>}</div>
     </div>
-    <div className="toolbar"><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><select aria-label="고객 유형 필터" value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)}><option value="all">전체 고객</option><option value="personal">개인고객</option><option value="business">도매 거래처</option></select><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명, 받는 사람, 연락처 검색"/></div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button></div></div>
+    <div className="toolbar"><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}><div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명, 받는 사람, 연락처 검색"/></div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button></div></div>
     {receivableError&&<div className="error" style={{marginBottom:12}}>미수금 불러오기 실패: {receivableError}<br/><small>먼저 제공된 Supabase SQL을 실행했는지 확인하세요.</small></div>}
     <div className="customer-layout">
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
-          <th><button onClick={()=>changeSort('name')}>거래처명 <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalAmount')}>누적 금액 <span>{sortMark('totalAmount')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
+          <th><button onClick={()=>changeSort('name')}>{customerMode==='personal'?'고객명':'거래처명'} <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th><th>단가 구분</th><th><button onClick={()=>changeSort('totalAmount')}>누적 금액 <span>{sortMark('totalAmount')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
         </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td><td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{Math.max(0,stats.totalAmount).toLocaleString()}원</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan="9">{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
         <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
@@ -3509,7 +3489,7 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-compact-logs-sty
 @media(max-width:700px){.oto-compact-log-wrap{padding:0 8px 10px}.oto-log-detail-content{grid-template-columns:repeat(2,minmax(0,1fr))}.oto-log-pagination{flex-wrap:wrap}}
 `;document.head.appendChild(el)}
 
-function Logs({logs,products,customers,isAdmin,onMove,onDelete,onBatchDelete,onDateChange}){
+function Logs({logs,products,customers,isAdmin,onMove,onDelete,onDateChange}){
   const [inProductId,setInProductId]=useState('');
   const [outProductId,setOutProductId]=useState('');
   const [detailProduct,setDetailProduct]=useState(null);
@@ -3522,10 +3502,6 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onBatchDelete,onD
   const [page,setPage]=useState(1);
   const [expandedLogId,setExpandedLogId]=useState(null);
   const pageSize=30;
-  const [selectedLogIds,setSelectedLogIds]=useState([]);
-  const [deletingBatch,setDeletingBatch]=useState(false);
-  useEffect(()=>{setSelectedLogIds(current=>current.filter(id=>logs.some(log=>log.id===id)))},[logs]);
-
 
   async function saveLogDate(log){
     const draft=dateDrafts[log.id]||stockLogDate(log);
@@ -3556,25 +3532,6 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onBatchDelete,onD
   const totalPages=Math.max(1,Math.ceil(sortedRows.length/pageSize));
   const currentPage=Math.min(page,totalPages);
   const visibleRows=sortedRows.slice((currentPage-1)*pageSize,currentPage*pageSize);
-
-  const visibleIds=visibleRows.map(log=>log.id);
-  const pageAllSelected=visibleIds.length>0&&visibleIds.every(id=>selectedLogIds.includes(id));
-  function togglePageSelection(){setSelectedLogIds(current=>pageAllSelected?current.filter(id=>!visibleIds.includes(id)):[...new Set([...current,...visibleIds])])}
-  async function deleteSelected(){
-    if(!isAdmin||!selectedLogIds.length||deletingBatch)return;
-    const count=selectedLogIds.length;
-    if(!window.confirm(`선택한 ${count}건을 삭제할까요?\n재고는 삭제한 입출고를 반대로 반영하여 조정됩니다.\n고객 구매내역과 매출 통계에도 영향을 줍니다.\n작업 전 서버에 백업이 생성됩니다.`))return;
-    if(window.prompt(`삭제를 진행하려면 '선택삭제'를 입력하세요.`)!=='선택삭제')return;
-    setDeletingBatch(true);
-    try{if(await onBatchDelete(selectedLogIds,false))setSelectedLogIds([])}finally{setDeletingBatch(false)}
-  }
-  async function deleteEverything(){
-    if(!isAdmin||deletingBatch)return;
-    if(!window.confirm('모든 입출고 기록을 삭제하고 실물 상품 재고를 0개로 초기화합니다.\n현재 화면에 표시되지 않은 과거 기록까지 전부 삭제합니다.\n고객 구매내역 및 매출 통계도 사라집니다.\n상품과 거래처, 미수금·입금 기록은 유지되므로 과거 거래와 불일치할 수 있습니다.\n계속할까요?'))return;
-    if(window.prompt('최종 확인: 전체 삭제와 재고 초기화에 동의하면 "전체초기화"를 정확히 입력하세요.')!=='전체초기화')return;
-    setDeletingBatch(true);
-    try{if(await onBatchDelete([],true))setSelectedLogIds([])}finally{setDeletingBatch(false)}
-  }
 
   function csv(){
     const head=['일시','구분','상품','수량','담당자','거래처','받는사람','주소','택배사','송장번호','주문번호','메모'];
@@ -3627,21 +3584,13 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onBatchDelete,onD
       <input type="date" value={to} onChange={e=>setTo(e.target.value)}/>
       <button onClick={csv}><Download size={17}/>CSV</button>
     </div>
-    {isAdmin&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',padding:'12px 16px',background:'#fff8f5',borderBottom:'1px solid #f4d4c9'}}>
-      <span style={{fontSize:12,color:'#8c3a20'}}>관리자 전용 · 선택 {selectedLogIds.length.toLocaleString()}건 · 전체 초기화는 모든 과거 기록에 적용</span>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-        <button type="button" className="ghost" disabled={!selectedLogIds.length||deletingBatch} onClick={()=>setSelectedLogIds([])}>선택 해제</button>
-        <button type="button" className="ghost" disabled={!selectedLogIds.length||deletingBatch} onClick={deleteSelected}>선택 삭제 ({selectedLogIds.length})</button>
-        <button type="button" className="log-delete-button" disabled={deletingBatch} onClick={deleteEverything}>전체 삭제 + 재고 0개 초기화</button>
-      </div>
-    </div>}
     <div className="log-summary">검색 결과 {rows.length.toLocaleString()}건 · 입고 {rows.filter(l=>l.movement_type==='in').reduce((a,l)=>a+Number(l.quantity),0).toLocaleString()}개 · 출고 {rows.filter(l=>l.movement_type==='out').reduce((a,l)=>a+Number(l.quantity),0).toLocaleString()}개</div>
     <div className="oto-compact-log-wrap">
       <table className="oto-compact-log-table">
-        <thead><tr>{isAdmin&&<th style={{width:48,textAlign:"center"}}><input type="checkbox" aria-label="현재 페이지 전체 선택" checked={pageAllSelected} onChange={togglePageSelection}/></th>}<th>날짜</th><th>구분</th><th>상품명</th><th>거래처 / 담당자</th><th>수량</th><th>상세</th></tr></thead>
+        <thead><tr><th>날짜</th><th>구분</th><th>상품명</th><th>거래처 / 담당자</th><th>수량</th><th>상세</th></tr></thead>
         <tbody>
           {visibleRows.map(log=><React.Fragment key={log.id}>
-            <tr className={expandedLogId===log.id?'oto-log-selected':''}>{isAdmin&&<td style={{textAlign:"center"}}><input type="checkbox" aria-label={`${log.product_name} 선택`} checked={selectedLogIds.includes(log.id)} onChange={e=>setSelectedLogIds(current=>e.target.checked?[...new Set([...current,log.id])]:current.filter(id=>id!==log.id))}/></td>}
+            <tr className={expandedLogId===log.id?'oto-log-selected':''}>
               <td className="oto-log-date">{stockLogDateKo(log)}</td>
               <td><span className={'oto-log-badge '+(log.movement_type==='in'?'in':'out')}>{log.movement_type==='in'?'입고':'출고'}</span></td>
               <td><button type="button" className="oto-log-product" onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button></td>
@@ -3649,7 +3598,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onBatchDelete,onD
               <td className={'oto-log-quantity '+(log.movement_type==='in'?'in':'out')}>{log.movement_type==='in'?'+':'-'}{formatNumber(log.quantity)}</td>
               <td><button type="button" className="ghost oto-log-detail-button" onClick={()=>setExpandedLogId(id=>id===log.id?null:log.id)}>{expandedLogId===log.id?'접기':'상세 보기'}</button></td>
             </tr>
-            {expandedLogId===log.id&&<tr className="oto-log-detail-row"><td colSpan={isAdmin?7:6}>
+            {expandedLogId===log.id&&<tr className="oto-log-detail-row"><td colSpan="6">
               <div className="oto-log-detail-content">
                 <div><b>담당자</b><span>{log.staff_name||'-'}</span></div>
                 <div><b>거래처</b><span>{log.customer_name||'-'}</span></div>
@@ -3667,7 +3616,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onBatchDelete,onD
               </div>}
             </td></tr>}
           </React.Fragment>)}
-          {!visibleRows.length&&<tr><td colSpan={isAdmin?7:6}><Empty text="조건에 맞는 입출고 기록이 없습니다."/></td></tr>}
+          {!visibleRows.length&&<tr><td colSpan="6"><Empty text="조건에 맞는 입출고 기록이 없습니다."/></td></tr>}
         </tbody>
       </table>
     </div>
