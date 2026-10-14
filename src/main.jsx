@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.6';
+const APP_VERSION='6.6.7';
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1813,8 +1813,63 @@ function SalesStat({label,value,suffix='',danger}){
 function Badge({p}){const q=Number(p.quantity),m=Number(p.minimum_quantity);return <span className={'badge '+(q===0?'out':q<=m?'low':'ok')}>{q===0?'품절':q<=m?'부족':'정상'}</span>}
 function Empty({text}){return <div className="empty">{text}</div>}
 
+const DEFAULT_PRODUCT_OPTIONS={size:['없음','소','중','대'],color:['없음','투명','검정','기타']};
+function useProductOptions(kind){
+  const [items,setItems]=useState(DEFAULT_PRODUCT_OPTIONS[kind]||['없음']);
+  const [error,setError]=useState('');
+  const refresh=async()=>{
+    const {data,error:e}=await supabase.from('product_options').select('name').eq('kind',kind).order('name');
+    if(e){setError('옵션을 불러오지 못했습니다. Supabase 설정 SQL을 먼저 실행하세요.');return;}
+    setError('');setItems([...new Set(['없음',...(data||[]).map(row=>row.name)])]);
+  };
+  useEffect(()=>{refresh()},[kind]);
+  return {items,refresh,error};
+}
+function ProductOptionManager({kind,onClose,onChanged}){
+  const {items,refresh,error:loadError}=useProductOptions(kind);
+  const [name,setName]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+  const title=kind==='size'?'사이즈':'색상';
+  async function add(){
+    const n=name.trim();if(!n||n==='없음')return;
+    setBusy(true);setError('');
+    try{const {error:e}=await supabase.from('product_options').insert({kind,name:n});if(e)throw e;setName('');await refresh();onChanged?.();}
+    catch(e){setError(normalizeError(e));}finally{setBusy(false)}
+  }
+  async function rename(old){
+    const n=window.prompt(`${title} 이름 수정`,old)?.trim();if(!n||n===old||n==='없음')return;
+    setBusy(true);setError('');
+    try{
+      const {data:used,error:checkError}=await supabase.from('products').select('id').eq(kind,old).limit(1);
+      if(checkError)throw checkError;
+      if(used?.length)throw new Error('이미 상품에 사용 중인 옵션입니다. 상품을 먼저 수정한 뒤 변경해 주세요.');
+      const {error:e}=await supabase.from('product_options').update({name:n}).eq('kind',kind).eq('name',old);
+      if(e)throw e;await refresh();onChanged?.();
+    }catch(e){setError(normalizeError(e));}finally{setBusy(false)}
+  }
+  async function remove(old){
+    if(!window.confirm(`${title} '${old}' 항목을 삭제할까요?\n상품 데이터는 삭제되지 않습니다.`))return;
+    setBusy(true);setError('');
+    try{
+      const {data:used,error:checkError}=await supabase.from('products').select('id').eq(kind,old).limit(1);
+      if(checkError)throw checkError;
+      if(used?.length)throw new Error('사용 중인 상품이 있어 삭제할 수 없습니다. 해당 상품의 옵션을 먼저 변경해 주세요.');
+      const {error:e}=await supabase.from('product_options').delete().eq('kind',kind).eq('name',old);
+      if(e)throw e;await refresh();onChanged?.();
+    }catch(e){setError(normalizeError(e));}finally{setBusy(false)}
+  }
+  return <Modal title={`${title} 관리`} onClose={onClose}><div style={{display:'grid',gap:12}}>
+    <div style={{display:'flex',gap:8}}><input style={{flex:1,minWidth:0}} placeholder={`새 ${title} 입력`} value={name} onChange={e=>setName(e.target.value)}/><button type="button" className="primary" disabled={busy||!name.trim()} onClick={add}>추가</button></div>
+    {items.filter(item=>item!=='없음').map(item=><div key={item} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid #eee'}}><strong style={{flex:1}}>{item}</strong><button type="button" className="ghost" disabled={busy} onClick={()=>rename(item)}>수정</button><button type="button" className="danger-button" disabled={busy} onClick={()=>remove(item)}>삭제</button></div>)}
+    {(error||loadError)&&<div className="error">{error||loadError}</div>}
+    <small>사용 중인 상품의 옵션은 삭제하거나 이름을 변경할 수 없습니다. '없음'은 기본 선택지입니다.</small>
+  </div></Modal>;
+}
+
 function ProductModal({value,onClose,onSaved}){
   const [form,setForm]=useState({...value,image_url:value.image_url||null});
+  const sizeOptions=useProductOptions('size');
+  const colorOptions=useProductOptions('color');
+  const [optionManager,setOptionManager]=useState(null);
   const [imageFile,setImageFile]=useState(null);
   const [imagePreview,setImagePreview]=useState(value.image_url||'');
   const [removeImage,setRemoveImage]=useState(false);
@@ -1912,8 +1967,8 @@ function ProductModal({value,onClose,onSaved}){
         </div>
       </label>
       <Field label="상품명" value={form.name} set={v=>setForm({...form,name:v})}/>
-      <Select label="사이즈" value={form.size} set={v=>setForm({...form,size:v})} options={['없음','소','중','대']}/>
-      <Select label="색상" value={form.color} set={v=>setForm({...form,color:v})} options={['없음','투명','검정','기타']}/>
+      <div style={{display:'flex',gap:6,alignItems:'flex-end',minWidth:0}}><div style={{flex:1,minWidth:0}}><Select label="사이즈" value={form.size||'없음'} set={v=>setForm({...form,size:v})} options={[...new Set([...sizeOptions.items,form.size||'없음'])]}/></div><button type="button" className="ghost" style={{height:40,whiteSpace:'nowrap'}} onClick={()=>setOptionManager('size')}>관리</button></div>
+      <div style={{display:'flex',gap:6,alignItems:'flex-end',minWidth:0}}><div style={{flex:1,minWidth:0}}><Select label="색상" value={form.color||'없음'} set={v=>setForm({...form,color:v})} options={[...new Set([...colorOptions.items,form.color||'없음'])]}/></div><button type="button" className="ghost" style={{height:40,whiteSpace:'nowrap'}} onClick={()=>setOptionManager('color')}>관리</button></div>
       <Field label="카테고리" value={form.category} set={v=>setForm({...form,category:v})}/>
       {String(form.category||'').trim()==='택배비'&&<div className="full" style={{padding:'10px 12px',borderRadius:10,background:'#fff7ed',fontSize:13}}>택배비 상품은 <b>도매 단가</b>를 택배 1건(또는 1박스) 금액으로 사용하며 VIP/VVIP 할인은 적용하지 않습니다. 출고할 때 수량으로 택배 건수를 조정하세요.</div>}
       {String(form.category||'').trim()!=='택배비'&&<><Field label="현재 수량" type="number" value={form.quantity} set={v=>setForm({...form,quantity:v})}/><Field label="최소 수량" type="number" value={form.minimum_quantity} set={v=>setForm({...form,minimum_quantity:v})}/></>}
@@ -1925,6 +1980,7 @@ function ProductModal({value,onClose,onSaved}){
       {error&&<div className="error full">{error}</div>}
       <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
     </form>
+    {optionManager&&<ProductOptionManager kind={optionManager} onClose={()=>{setOptionManager(null);sizeOptions.refresh();colorOptions.refresh();}} onChanged={()=>{sizeOptions.refresh();colorOptions.refresh();}}/>}
   </Modal>;
 }
 
