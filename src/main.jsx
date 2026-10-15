@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.7';
+const APP_VERSION='6.6.9';
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1341,9 +1341,19 @@ function App(){
       if(customerRes.error)throw customerRes.error;
 
       if(!mounted.current)return;
+      // 상품 ID를 기준으로 현재 상품명을 모든 입출고 기록에 적용합니다.
+      // DB의 과거 기록은 변경하지 않으며 수량·가격·날짜 등은 유지합니다.
+      const latestProducts=productRes.data||[];
+      const currentProductNames=new Map(
+        latestProducts.map(product=>[String(product.id),product.name])
+      );
+      const resolvedLogs=(logRes.data||[]).map(log=>{
+        const latestName=currentProductNames.get(String(log.product_id||''));
+        return latestName ? {...log,product_name:latestName} : log;
+      });
       setProfile(profileRes.data);
-      setProducts(productRes.data||[]);
-      setLogs(logRes.data||[]);
+      setProducts(latestProducts);
+      setLogs(resolvedLogs);
       setCustomers(customerRes.data||[]);
     }catch(e){
       if(mounted.current)setError(normalizeError(e));
@@ -1939,6 +1949,20 @@ function ProductModal({value,onClose,onSaved}){
         ?await supabase.from('products').update(payload).eq('id',form.id)
         :await supabase.from('products').insert({...payload,sku:makeInternalSku(form)});
       if(result.error)throw result.error;
+      // 상품명을 바꾸면 Supabase의 기존 입출고 기록도 영구적으로 변경합니다.
+      // 다른 상품과 섞이지 않도록 상품 ID를 우선 사용합니다.
+      const originalProduct=products.find(item=>String(item.id)===String(form.id));
+      const oldName=String(originalProduct?.name||'').trim();
+      const newName=payload.name;
+      if(form.id&&oldName&&oldName!==newName){
+        const {error:historyError}=await supabase.from('stock_logs')
+          .update({product_name:newName}).eq('product_id',form.id);
+        if(historyError)throw new Error('상품명은 저장되었지만 과거 입출고 기록 변경에 실패했습니다: '+normalizeError(historyError));
+        // 오래된 기록 중 상품 ID가 없는 경우: 이전 이름이 정확히 같은 기록만 변경
+        const {error:legacyError}=await supabase.from('stock_logs')
+          .update({product_name:newName}).is('product_id',null).eq('product_name',oldName);
+        if(legacyError)throw new Error('상품 ID가 없는 과거 기록 변경에 실패했습니다: '+normalizeError(legacyError));
+      }
       onSaved();
     }catch(e){
       setError(normalizeError(e));
