@@ -4372,8 +4372,10 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-sales-calendar-l
     }
     .customer-history-inline .oto-calendar-filter .oto-calendar-grid>button>span{font-size:11px!important;}
     .customer-history-inline .oto-calendar-filter .oto-calendar-grid>button>small{
-      display:block!important;width:100%!important;font-size:9px!important;
-      text-align:center!important;overflow-wrap:anywhere!important;white-space:normal!important;
+      display:block!important;width:100%!important;font-size:6px!important;
+      font-weight:400!important;letter-spacing:-.3px!important;line-height:1!important;
+      text-align:center!important;overflow-wrap:normal!important;white-space:nowrap!important;
+      overflow:hidden!important;text-overflow:clip!important;
     }
     .customer-history-inline .oto-calendar-filter .oto-calendar-selection{font-size:11px!important;}
     .customer-history-inline .oto-calendar-filter .customer-history-buttons{
