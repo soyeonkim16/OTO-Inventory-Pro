@@ -2790,7 +2790,7 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
               {Array.from({length:new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+1,0).getDate()},(_,i)=>{
                 const day=i+1,date=calendarDate(day),sale=calendarSales[date];
                 return <button type="button" key={date} className={calendarDay===date?'oto-calendar-selected':''} onClick={()=>{setCalendarDay(date);setFrom(date);setTo(date);setSelectedPaymentKeys([])}}>
-                  <span>{day}</span>{sale&&<small title={`${sale.count}개 입출고 기록`}>{sale.amount.toLocaleString()}원</small>}
+                  <span>{day}</span>{sale&&<small title={`판매 합계 ${sale.amount.toLocaleString()}원 · ${sale.count}개 기록`}>{Math.abs(sale.amount)>=10000?`${Number((sale.amount/10000).toFixed(1)).toLocaleString()}만`:sale.amount.toLocaleString()}</small>}
                 </button>;
               })}
             </div>
@@ -4361,7 +4361,7 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-sales-calendar-l
       display:flex!important;flex-direction:column!important;align-items:center!important;
       justify-content:flex-start!important;gap:3px!important;
       width:100%!important;min-width:0!important;max-width:100%!important;
-      height:55px!important;min-height:55px!important;margin:0!important;
+      height:59px!important;min-height:59px!important;margin:0!important;
       padding:5px 1px!important;box-sizing:border-box!important;
       border:1px solid #e4e7ec!important;border-radius:6px!important;
       background:#f8fafc!important;color:#101828!important;line-height:1.2!important;
@@ -4372,8 +4372,8 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-sales-calendar-l
     }
     .customer-history-inline .oto-calendar-filter .oto-calendar-grid>button>span{font-size:11px!important;}
     .customer-history-inline .oto-calendar-filter .oto-calendar-grid>button>small{
-      display:block!important;width:100%!important;font-size:5px!important;
-      font-weight:400!important;letter-spacing:-.3px!important;line-height:1!important;
+      display:block!important;width:100%!important;font-size:10px!important;
+      font-weight:700!important;letter-spacing:-.15px!important;line-height:1.15!important;
       text-align:center!important;overflow-wrap:normal!important;white-space:nowrap!important;
       overflow:hidden!important;text-overflow:clip!important;
     }
