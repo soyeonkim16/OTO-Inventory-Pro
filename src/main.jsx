@@ -334,7 +334,7 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .oto-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;}
   .oto-calendar-grid>b{text-align:center;font-size:11px;padding:5px 0;color:#667085;}
   .oto-calendar-grid>button{width:100%!important;min-width:0!important;min-height:49px!important;padding:3px 1px!important;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;background:#f8fafc!important;border:1px solid #e4e7ec!important;border-radius:5px;font-size:11px;}
-  .oto-calendar-grid>button small{font-size:9px;color:#155eef;overflow-wrap:anywhere;line-height:1.2;}
+  .oto-calendar-grid>button small{font-size:7px!important;font-weight:500!important;color:#155eef;overflow-wrap:anywhere;line-height:1.05!important;letter-spacing:-.35px;}
   .oto-calendar-grid>button.oto-calendar-selected{background:#e5efff!important;border:2px solid #155eef!important;}
   .oto-calendar-selection{font-size:11px;color:#475467;margin:9px 0;}
   .oto-calendar-filter .customer-history-buttons{display:flex;gap:6px;}
