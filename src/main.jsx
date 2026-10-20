@@ -2667,9 +2667,9 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
     if(!selected)return result;
     logs.forEach(log=>{
       if(log.movement_type!=='out'&&!isReturnLog(log))return;
-      if(!(String(log.customer_id)===String(selected.id)||(!log.customer_id&&log.customer_name===selected.name)))return;
+      if(!(String(log.customer_id)===String(selected.id)||String(log.customer_name||'')===String(selected.name)))return;
       const date=stockLogDate(log);
-      if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
       const product=matchedProductForLog(log);
       const price=Number(log.unit_price||productPriceByType(product,selected.price_type))||0;
       if(!result[date])result[date]={amount:0,count:0,qty:0};
@@ -2790,7 +2790,7 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
               {Array.from({length:new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+1,0).getDate()},(_,i)=>{
                 const day=i+1,date=calendarDate(day),sale=calendarSales[date];
                 return <button type="button" key={date} className={calendarDay===date?'oto-calendar-selected':''} onClick={()=>{setCalendarDay(date);setFrom(date);setTo(date);setSelectedPaymentKeys([])}}>
-                  <span>{day}</span>{sale&&<small>{sale.amount.toLocaleString()}원</small>}
+                  <span>{day}</span>{sale&&<small title={`${sale.count}개 입출고 기록`}>{sale.amount.toLocaleString()}원</small>}
                 </button>;
               })}
             </div>
