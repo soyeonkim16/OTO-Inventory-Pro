@@ -2156,7 +2156,7 @@ function MoveModal({product,initialType='out',customers,profile,user,onClose,onS
       <Field label={form.type==='return'?'반품 수량':'수량'} type="number" value={form.qty} set={v=>setForm({...form,qty:v})}/>
       <Field label={form.type==='out'?'출고일':form.type==='return'?'반품일':'입고일'} type="date" value={form.movement_date} set={v=>setForm({...form,movement_date:v})}/>
       {needsCustomer&&<>
-        <Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pick} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/>
+        <CustomerSearchSelect label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pick} customers={customers}/>
         {personalPurchase&&<><Select label="구매처" value={form.purchase_channel} set={v=>setForm({...form,purchase_channel:v,purchase_channel_other:v==='기타'?form.purchase_channel_other:''})} options={purchaseChannelOptions} labels={{'':'구매처 선택'}}/>{form.purchase_channel==='기타'&&<Field label="기타 구매처" value={form.purchase_channel_other} set={v=>setForm({...form,purchase_channel_other:v})}/>}</>}
         <Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/>
         <Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/>
@@ -2228,7 +2228,7 @@ function BatchMoveModal({products,customers,profile,user,onClose,onSaved}){
     <Select label="구분" value={form.type} set={v=>setForm({...form,type:v})} options={['in','out','return']} labels={{in:'입고',out:'출고',return:'반품'}}/>
     <Field label={form.type==='out'?'출고일':form.type==='return'?'반품일':'입고일'} type="date" value={form.movement_date} set={v=>setForm({...form,movement_date:v})}/>
     <div className="full" style={{display:'grid',gap:8}}><b>상품 / 수량</b>{items.map((item,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 120px 70px',gap:8}}><select value={item.product_id} onChange={e=>updateItem(i,'product_id',e.target.value)}><option value="">상품 선택</option>{products.map(p=><option key={p.id} value={p.id}>{String(p.category||'').trim()==='택배비'?`${p.name} · ${formatWon(p.wholesale_price)} / 건`:`${p.name} · ${p.size||'없음'} · ${p.color||'없음'} · 재고 ${formatNumber(p.quantity)}`}</option>)}</select><input type="number" min="1" value={item.qty} onChange={e=>updateItem(i,'qty',e.target.value)}/><button type="button" className="ghost" onClick={()=>removeItem(i)}>삭제</button></div>)}<button type="button" className="ghost" onClick={addItem}>+ 상품 추가</button></div>
-    {(form.type==='out'||form.type==='return')&&<><Select label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pickCustomer} options={['',...customers.map(c=>c.id)]} labels={Object.fromEntries(customers.map(c=>[c.id,c.name]))}/>{customer?.customer_type==='personal'&&<><Select label="구매처" value={form.purchase_channel} set={v=>setForm({...form,purchase_channel:v,purchase_channel_other:v==='기타'?form.purchase_channel_other:''})} options={purchaseChannelOptions} labels={{'':'구매처 선택'}}/>{form.purchase_channel==='기타'&&<Field label="기타 구매처" value={form.purchase_channel_other} set={v=>setForm({...form,purchase_channel_other:v})}/>}</>}<Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/><Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/><div className="full address"><label>우편번호<input value={form.postal_code} readOnly/></label><label>주소<input value={form.address} readOnly/></label><button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button></div><Field label="상세주소" value={form.address_detail} set={v=>setForm({...form,address_detail:v})} full/>{form.type==='out'&&<><Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/><Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/><Select label="결제상태" value={form.payment_status} set={v=>setForm({...form,payment_status:v})} options={['paid','credit']} labels={{paid:'결제완료',credit:'외상(미수)'}}/><div><small>등급 적용 예상금액</small><strong style={{display:'block',marginTop:6}}>{formatWon(totalAmount)}</strong></div></>}<Field label={form.type==='return'?'원주문번호':'주문번호'} value={form.order} set={v=>setForm({...form,order:v})}/></>}
+    {(form.type==='out'||form.type==='return')&&<><CustomerSearchSelect label={form.type==='return'?'반품 거래처':'거래처'} value={form.customer_id} set={pickCustomer} customers={customers}/>{customer?.customer_type==='personal'&&<><Select label="구매처" value={form.purchase_channel} set={v=>setForm({...form,purchase_channel:v,purchase_channel_other:v==='기타'?form.purchase_channel_other:''})} options={purchaseChannelOptions} labels={{'':'구매처 선택'}}/>{form.purchase_channel==='기타'&&<Field label="기타 구매처" value={form.purchase_channel_other} set={v=>setForm({...form,purchase_channel_other:v})}/>}</>}<Field label="받는 사람" value={form.recipient_name} set={v=>setForm({...form,recipient_name:v})}/><Field label="연락처" value={form.phone} set={v=>setForm({...form,phone:v})}/><div className="full address"><label>우편번호<input value={form.postal_code} readOnly/></label><label>주소<input value={form.address} readOnly/></label><button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button></div><Field label="상세주소" value={form.address_detail} set={v=>setForm({...form,address_detail:v})} full/>{form.type==='out'&&<><Select label="택배사" value={form.courier} set={v=>setForm({...form,courier:v})} options={courierOptions}/><Field label="송장번호" value={form.tracking} set={v=>setForm({...form,tracking:v})}/><Select label="결제상태" value={form.payment_status} set={v=>setForm({...form,payment_status:v})} options={['paid','credit']} labels={{paid:'결제완료',credit:'외상(미수)'}}/><div><small>등급 적용 예상금액</small><strong style={{display:'block',marginTop:6}}>{formatWon(totalAmount)}</strong></div></>}<Field label={form.type==='return'?'원주문번호':'주문번호'} value={form.order} set={v=>setForm({...form,order:v})}/></>}
     <Field label={form.type==='return'?'반품 사유':'메모'} value={form.memo} set={v=>setForm({...form,memo:v})} full/>{error&&<div className="error full">{error}</div>}<button className="primary full" disabled={saving}>{saving?'처리 중…':form.type==='out'?`${items.filter(x=>x.product_id).length}개 상품 일괄 출고`:'일괄 처리'}</button>
   </form></Modal>;
 }
@@ -3830,6 +3830,40 @@ function Modal({title,onClose,children}){
 function Field({label,value,set,type='text',full}){
   const optional=['메모','상세주소','송장번호','주문번호'].includes(label);
   return <label className={full?'full':''}>{label}<input type={type} min={type==='number'?0:undefined} value={value} onChange={e=>set(e.target.value)} required={!optional}/></label>;
+}
+const KOREAN_INITIALS='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+function customerInitials(name){
+  return Array.from(String(name||'')).map(char=>{
+    const n=char.charCodeAt(0)-0xAC00;
+    return n>=0&&n<11172?KOREAN_INITIALS[Math.floor(n/588)]:char;
+  }).join('');
+}
+function CustomerSearchSelect({label,value,set,customers}){
+  const [query,setQuery]=useState('');
+  const [open,setOpen]=useState(false);
+  const selected=customers.find(c=>String(c.id)===String(value));
+  const text=open?query:(selected?.name||'');
+  const keyword=query.trim().toLowerCase().replace(/\\s+/g,'');
+  const results=customers.filter(c=>{
+    const name=String(c.name||'').toLowerCase();
+    return !keyword||name.replace(/\\s+/g,'').includes(keyword)||customerInitials(name).replace(/\\s+/g,'').includes(keyword);
+  });
+  return <label style={{position:'relative',minWidth:0}}>{label}
+    <input type="text" autoComplete="off" placeholder="거래처 이름 또는 초성 검색"
+      value={text} onFocus={()=>{setQuery('');setOpen(true)}}
+      onChange={e=>{setQuery(e.target.value);setOpen(true)}}
+      onBlur={()=>{setOpen(false);setQuery('')}} 
+      onKeyDown={e=>{
+        if(e.key==='Escape'){setOpen(false);e.currentTarget.blur()}
+        if(e.key==='Enter'&&open&&results.length){e.preventDefault();set(results[0].id);setOpen(false);e.currentTarget.blur()}
+      }}
+      style={{width:'100%',boxSizing:'border-box'}}/>
+    {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:10020,maxHeight:240,overflowY:'auto',background:'#fff',border:'1px solid #d0d5dd',borderRadius:8,boxShadow:'0 8px 20px rgba(0,0,0,.15)'}}>
+      <button type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>{set('');setOpen(false);setQuery('')}} style={{display:'block',width:'100%',textAlign:'left',padding:10,background:'#fff',border:0}}>선택 안 함</button>
+      {results.map(c=><button type="button" key={c.id} onMouseDown={e=>e.preventDefault()} onClick={()=>{set(c.id);setOpen(false);setQuery('')}} style={{display:'block',width:'100%',textAlign:'left',padding:10,background:'#fff',border:0,borderTop:'1px solid #eee',cursor:'pointer'}}>{c.name}</button>)}
+      {!results.length&&<div style={{padding:12,color:'#667085'}}>검색 결과가 없습니다.</div>}
+    </div>}
+  </label>;
 }
 function Select({label,value,set,options,labels={}}){return <label>{label}<select value={value} onChange={e=>set(e.target.value)}>{options.map(option=><option key={option} value={option}>{labels[option]??(option||'선택 안 함')}</option>)}</select></label>}
 function normalizeError(error){return error?.message||String(error||'알 수 없는 오류가 발생했습니다.')}
