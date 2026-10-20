@@ -2256,13 +2256,13 @@ function CustomerModal({value,onClose,onSaved}){
       <Field label={form.customer_type==='personal'?'고객명 / 닉네임':'거래처명'} value={form.name} set={v=>setForm({...form,name:v})} full/>
       {form.customer_type!=='personal'&&<Field label="받는 사람" value={form.recipient_name||''} set={v=>setForm({...form,recipient_name:v})}/>}
       <Field label="연락처" value={form.phone||''} set={v=>setForm({...form,phone:v})}/>
-      {form.customer_type!=='personal'&&<><div className="full address">
+      <div className="full address">
         <label>우편번호<input value={form.postal_code||''} readOnly/></label>
         <label>주소<input value={form.address||''} readOnly/></label>
         <button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button>
       </div>
       <Field label="상세주소" value={form.address_detail||''} set={v=>setForm({...form,address_detail:v})} full/>
-      <Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
+      {form.customer_type!=='personal'&&<><Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
       <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','vip','vvip','retail']} labels={{wholesale:'도매가(VAT별도)',vip:'도매가(VIP·VAT별도)',vvip:'도매가(VVIP·VAT별도)',retail:'소매가(VAT포함)'}}/>
       </>}
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})}/>
