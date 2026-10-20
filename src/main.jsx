@@ -327,6 +327,10 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-print-fi
   .customer-history-inline .customer-history-head h3{margin:3px 0 0!important;font-size:18px!important;}
   .customer-history-inline .customer-history-filter{grid-column:1!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin:0!important;padding:12px!important;border:1px solid #e4e7ec!important;border-radius:12px!important;background:#fff!important;}
   .customer-history-inline .customer-history-filter .customer-history-buttons{grid-column:1/-1!important;}
+  .customer-history-inline .customer-history-presets{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px;}
+  .customer-history-inline .customer-history-presets button{width:auto!important;min-height:30px;padding:4px 8px!important;font-size:11px!important;}
+  .customer-history-inline .customer-history-filter input[type=date]{cursor:pointer;}
+
   .customer-history-inline .customer-history-filter button{width:100%!important;justify-content:center!important;}
   .customer-history-inline .customer-history-summary{grid-column:1!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin:0!important;}
   .customer-history-inline .customer-history-summary>div{min-width:0!important;padding:12px!important;border:1px solid #e4e7ec!important;border-radius:12px!important;background:#fff!important;}
@@ -2737,7 +2741,22 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
 
   const customerHistoryPanel=selected?<div className="customer-history customer-history-inline">
     <div className="customer-history-head"><div><small>거래처 거래현황</small><h3>{selected.name}</h3></div><div style={{display:'flex',alignItems:'center',gap:6}}><button className="ghost" onClick={()=>setReceivableModal({mode:'charge',customer:selected})}>미수금 등록</button><button className="primary" onClick={()=>setReceivableModal({mode:'payment',customer:selected})}>입금처리</button><button onClick={()=>setSelectedId('')} aria-label="닫기">×</button></div></div>
-          <div className="customer-history-filter"><label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label><div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div></div>
+          <div className="customer-history-filter">
+            <label>시작일<input type="date" value={from} onChange={e=>setFrom(e.target.value)} onClick={e=>{try{e.currentTarget.showPicker?.()}catch(_){}}}/></label>
+            <label>종료일<input type="date" value={to} onChange={e=>setTo(e.target.value)} onClick={e=>{try{e.currentTarget.showPicker?.()}catch(_){}}}/></label>
+            <div className="customer-history-presets">
+              {['오늘','최근 7일','이번 달','지난달','전체 기간'].map(period=><button type="button" key={period} className="ghost" onClick={()=>{
+                const now=new Date(), fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                if(period==='전체 기간'){setFrom('');setTo('');return;}
+                if(period==='오늘'){setFrom(fmt(now));setTo(fmt(now));return;}
+                if(period==='최근 7일'){const start=new Date(now);start.setDate(now.getDate()-6);setFrom(fmt(start));setTo(fmt(now));return;}
+                if(period==='이번 달'){setFrom(fmt(new Date(now.getFullYear(),now.getMonth(),1)));setTo(fmt(now));return;}
+                setFrom(fmt(new Date(now.getFullYear(),now.getMonth()-1,1)));
+                setTo(fmt(new Date(now.getFullYear(),now.getMonth(),0)));
+              }}>{period}</button>)}
+            </div>
+            <div className="customer-history-buttons"><button onClick={exportCustomerCsv}><Download size={16}/>CSV</button></div>
+          </div>
           <div className="customer-history-summary"><div><small>거래 건수</small><strong>{transactionGroups.length.toLocaleString()}건</strong></div><div><small>순 출고수량</small><strong>{customerLogs.reduce((s,l)=>s+(isReturnLog(l)?-1:1)*Number(l.quantity||0),0).toLocaleString()}개</strong></div><div><small>품목수</small><strong>{new Set(customerLogs.map(l=>l.product_name)).size.toLocaleString()}종</strong></div><div><small>미수잔액</small><strong style={{color:selectedReceivableBalance>0?'#d92d20':'inherit'}}>{Math.max(0,selectedReceivableBalance).toLocaleString()}원</strong></div></div>
           <div className="receivable-history-block" style={{margin:'14px 0',border:'1px solid #e5e7eb',borderRadius:12,overflow:'hidden'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'#f8fafc'}}><b>미수금·입금 내역</b><strong>잔액 {Math.max(0,selectedReceivableBalance).toLocaleString()}원</strong></div>{selectedReceivableEntries.length?<div>{selectedReceivableEntries.map(entry=><div key={entry.id} style={{display:'grid',gridTemplateColumns:'92px 70px 1fr auto auto',gap:8,alignItems:'center',padding:'10px 14px',borderTop:'1px solid #eef0f3',fontSize:13}}><span>{entry.date}</span><b style={{color:entry.type==='payment'?'#1570ef':'#d92d20'}}>{entry.type==='payment'?'입금':'미수'}</b><span>{entry.method}{entry.memo?` · ${entry.memo}`:''}</span><strong>{entry.type==='payment'?'-':'+'}{Number(entry.amount||0).toLocaleString()}원</strong><button className="ghost" onClick={()=>deleteReceivableEntry(entry)}>삭제</button></div>)}</div>:<div style={{padding:16,color:'#667085',textAlign:'center'}}>등록된 미수금 내역이 없습니다.</div>}</div>
           <div className="daily-shipments">
