@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.23';
+const APP_VERSION='6.6.24';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -4632,4 +4632,50 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v6619-table-gutt
     }
   `;
   document.head.appendChild(gutterStyle);
+}
+
+
+/* v6.6.24: 도매처/개인고객 표 정렬 제목의 흰색 버튼 배경 제거 */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v6624-customer-header-flat')){
+  const headerStyle=document.createElement('style');
+  headerStyle.id='oto-v6624-customer-header-flat';
+  headerStyle.textContent=`
+    .app .customer-table > thead > tr > th {
+      background:#f8fafc!important;
+    }
+    .app .customer-table > thead > tr > th > button {
+      display:inline-flex!important;
+      align-items:center!important;
+      justify-content:flex-start!important;
+      width:100%!important;
+      min-width:0!important;
+      height:100%!important;
+      min-height:0!important;
+      margin:0!important;
+      padding:0!important;
+      background:transparent!important;
+      background-image:none!important;
+      border:0!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+      color:inherit!important;
+      font:inherit!important;
+      text-align:left!important;
+      white-space:nowrap!important;
+      cursor:pointer!important;
+    }
+    .app .customer-table > thead > tr > th > button:hover,
+    .app .customer-table > thead > tr > th > button:focus,
+    .app .customer-table > thead > tr > th > button:active {
+      background:transparent!important;
+      background-image:none!important;
+      border:0!important;
+      box-shadow:none!important;
+    }
+    .app .customer-table > thead > tr > th > button:focus-visible {
+      outline:2px solid #8fb2ff!important;
+      outline-offset:2px!important;
+    }
+  `;
+  document.head.appendChild(headerStyle);
 }
