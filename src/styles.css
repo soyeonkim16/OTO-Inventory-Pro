@@ -2532,3 +2532,38 @@ button.primary[type="submit"] {
     display: none !important;
   }
 }
+
+
+/* =========================================================
+   OTO typography update v6.6.20
+   Pretendard 유지 / 글씨 굵기 한 단계 낮춤 / 크기 약 1px 확대
+   인쇄용 거래명세표(.invoice-*)는 변경하지 않음
+   ========================================================= */
+@media screen {
+  body, .app { font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 400; }
+  .app .panel-title, .app .employee-title, .app .modal-head h2,
+  .app .brand b, .login h1 { font-weight: 600 !important; font-size: 19px; }
+  .app nav button { font-weight: 500 !important; font-size: 14px !important; }
+  .app .panel th, .app .customer-table th,
+  .app .customer-table th > button { font-weight: 500 !important; font-size: 13px !important; }
+  .app .panel td, .app .customer-table td,
+  .app .customer-mobile-list article { font-size: 15px; font-weight: 400; }
+  .app .panel td b, .app .panel td strong,
+  .app .stat strong, .app .log-list strong,
+  .app .customer-history-summary strong { font-weight: 500 !important; }
+  .app .panel button, .app .customer-row-actions button,
+  .app .customer-card-actions button, .app .row-actions button,
+  .app .employee-actions button { font-weight: 500 !important; font-size: 13px !important; }
+  .app .toolbar input, .app .toolbar select,
+  .app .log-filter input, .app .log-filter select,
+  .app .form-grid input, .app .form-grid select,
+  .app .form-grid textarea { font-size: 14px; font-weight: 400; }
+  .app label:not(.invoice-sheet label) { font-weight: 500; font-size: 14px; }
+  .app .badge, .app .price-type-badge { font-weight: 500 !important; font-size: 13px; }
+  /* 기존 화면에서 !important로 지정한 고객 관리 버튼 굵기도 통일 */
+  .app .customer-table .customer-row-actions button,
+  .app .customer-mobile-list button,
+  .app .customer-list button,
+  .app .customer-row button,
+  .app .customer-card button { font-weight: 500 !important; font-size: 13px !important; }
+}
