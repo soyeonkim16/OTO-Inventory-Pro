@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.14';
+const APP_VERSION='6.6.16';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -4464,4 +4464,45 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-sales-calendar-l
     }
   `;
   document.head.appendChild(calendarFix);
+}
+
+/* v6.6.16: 도매처·개인고객 수정/삭제 버튼 최종 우선순위 보정.
+   기존 스타일 선언 이후에 추가해 충돌을 방지합니다. */
+if(typeof document!=='undefined'&&!document.getElementById('oto-customer-action-final-v6616')){
+ const style=document.createElement('style');
+ style.id='oto-customer-action-final-v6616';
+ style.textContent=`
+  .app .customer-row-actions button.oto-unified-edit,
+  .app .customer-card-actions button.oto-unified-edit{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    position:static!important;flex:0 0 auto!important;width:auto!important;
+    min-width:52px!important;height:30px!important;min-height:30px!important;
+    margin:0!important;padding:0 11px!important;
+    border:1px solid #b2ccff!important;border-radius:7px!important;
+    background:#fff!important;color:#155eef!important;
+    font-size:12px!important;font-weight:700!important;line-height:1!important;
+    box-shadow:none!important;white-space:nowrap!important;
+  }
+  .app .customer-row-actions button.oto-unified-delete,
+  .app .customer-card-actions button.oto-unified-delete{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    position:static!important;flex:0 0 auto!important;width:auto!important;
+    min-width:52px!important;height:30px!important;min-height:30px!important;
+    margin:0!important;padding:0 11px!important;
+    border:1px solid #fda29b!important;border-radius:7px!important;
+    background:#fff!important;color:#d92d20!important;
+    font-size:12px!important;font-weight:700!important;line-height:1!important;
+    box-shadow:none!important;white-space:nowrap!important;
+  }
+  .app .customer-row-actions button.oto-unified-edit:hover,
+  .app .customer-card-actions button.oto-unified-edit:hover{background:#eef4ff!important;}
+  .app .customer-row-actions button.oto-unified-delete:hover,
+  .app .customer-card-actions button.oto-unified-delete:hover{background:#fff1f0!important;}
+  .app .customer-row-actions,.app .customer-card-actions{
+    display:flex!important;align-items:center!important;gap:6px!important;
+  }
+  .app .customer-row-actions{justify-content:flex-end!important;flex-wrap:nowrap!important;}
+  .app .customer-card-actions{justify-content:flex-start!important;flex-wrap:wrap!important;}
+ `;
+ document.head.appendChild(style);
 }
