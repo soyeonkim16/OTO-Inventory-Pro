@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.22';
+const APP_VERSION='6.6.23';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -1346,13 +1346,28 @@ function App(){
       return;
     }
     loadAll();
+    // v6.6.23: 다른 기기에서 상품/입출고를 수정하거나 삭제하면 자동 재조회.
+    // Realtime 연결이 끊겨도 주기적 동기화로 누락을 복구합니다.
     const channel=supabase.channel(`oto-live-${session.user.id}`)
       .on('postgres_changes',{event:'*',schema:'public',table:'products'},scheduleLoad)
       .on('postgres_changes',{event:'*',schema:'public',table:'stock_logs'},scheduleLoad)
       .on('postgres_changes',{event:'*',schema:'public',table:'customers'},scheduleLoad)
-      .subscribe();
+      .subscribe((status)=>{
+        if(status==='SUBSCRIBED')scheduleLoad();
+        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')scheduleLoad();
+      });
+    const onVisible=()=>{if(document.visibilityState==='visible')scheduleLoad();};
+    const onFocus=()=>scheduleLoad();
+    document.addEventListener('visibilitychange',onVisible);
+    window.addEventListener('focus',onFocus);
+    const fallbackSync=setInterval(()=>{
+      if(document.visibilityState==='visible')scheduleLoad();
+    },15000);
     return()=>{
       clearTimeout(reloadTimer.current);
+      clearInterval(fallbackSync);
+      document.removeEventListener('visibilitychange',onVisible);
+      window.removeEventListener('focus',onFocus);
       supabase.removeChannel(channel);
     };
   },[session?.user?.id]);
