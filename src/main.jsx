@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.16';
+const APP_VERSION='6.6.17';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -4505,4 +4505,40 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-customer-action-
   .app .customer-card-actions{justify-content:flex-start!important;flex-wrap:wrap!important;}
  `;
  document.head.appendChild(style);
+}
+
+
+/* v6.6.17: 도매처/개인고객 목록의 수정·삭제를 재고 탭과 동일한 버튼으로 고정 */
+if(typeof document!=='undefined'&&!document.getElementById('oto-customer-actions-v6617')){
+  const actionStyle=document.createElement('style');
+  actionStyle.id='oto-customer-actions-v6617';
+  actionStyle.textContent=`
+    html body #root .app .customer-table .customer-row-actions > button.oto-unified-edit,
+    html body #root .app .customer-card-actions > button.oto-unified-edit {
+      display:inline-flex!important;align-items:center!important;justify-content:center!important;
+      box-sizing:border-box!important;position:static!important;flex:0 0 auto!important;
+      width:auto!important;min-width:44px!important;height:26px!important;min-height:26px!important;
+      margin:0!important;padding:0 10px!important;border:1px solid #b2ccff!important;
+      border-radius:6px!important;background:#fff!important;color:#155eef!important;
+      font-size:11px!important;font-weight:700!important;line-height:1!important;
+      box-shadow:none!important;white-space:nowrap!important;
+    }
+    html body #root .app .customer-table .customer-row-actions > button.oto-unified-delete,
+    html body #root .app .customer-card-actions > button.oto-unified-delete {
+      display:inline-flex!important;align-items:center!important;justify-content:center!important;
+      box-sizing:border-box!important;position:static!important;flex:0 0 auto!important;
+      width:auto!important;min-width:44px!important;height:26px!important;min-height:26px!important;
+      margin:0!important;padding:0 10px!important;border:1px solid #fda29b!important;
+      border-radius:6px!important;background:#fff!important;color:#d92d20!important;
+      font-size:11px!important;font-weight:700!important;line-height:1!important;
+      box-shadow:none!important;white-space:nowrap!important;
+    }
+    html body #root .app .customer-table .customer-row-actions > button.oto-unified-edit:hover,
+    html body #root .app .customer-card-actions > button.oto-unified-edit:hover{background:#eef4ff!important;}
+    html body #root .app .customer-table .customer-row-actions > button.oto-unified-delete:hover,
+    html body #root .app .customer-card-actions > button.oto-unified-delete:hover{background:#fff1f0!important;}
+    html body #root .app .customer-row-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex-wrap:nowrap!important;}
+    html body #root .app .customer-card-actions{display:flex!important;align-items:center!important;gap:6px!important;}
+  `;
+  document.head.appendChild(actionStyle);
 }
