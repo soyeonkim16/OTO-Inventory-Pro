@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.19';
+const APP_VERSION='6.6.22';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -2960,19 +2960,42 @@ function InvoiceModal({customer,logs,products,onClose}){
     }
   })();
 
-  const [supplier,setSupplier]=useState(
-    savedSupplier||{
-      businessName:'OTO',
-      registrationNumber:'',
-      representative:'',
-      address:'',
-      phone:'',
-      fax:'',
-      manager:'',
-      managerPhone:'',
-      bankAccount:''
+  const [supplier,setSupplier]=useState({
+    businessName:'OTO',
+    registrationNumber:'',
+    representative:'',
+    address:'',
+    phone:'',
+    fax:'',
+    manager:'',
+    managerPhone:'',
+    bankAccount:'',
+    ...(savedSupplier && typeof savedSupplier==='object' ? savedSupplier : {})
+  });
+
+  const [supplierLoading,setSupplierLoading]=useState(true);
+  const [supplierSaving,setSupplierSaving]=useState(false);
+  const [supplierError,setSupplierError]=useState('');
+
+  // 공급자 설정은 Supabase의 공통 행에서 불러옵니다. 로컬 값은 네트워크 오류 시 임시 백업입니다.
+  useEffect(()=>{
+    let active=true;
+    async function fetchSharedSupplier(){
+      const {data,error}=await supabase.from('oto_invoice_settings')
+        .select('supplier').eq('id',1).maybeSingle();
+      if(!active)return;
+      if(error){
+        setSupplierError('공통 공급자 정보를 불러오지 못했습니다. SQL 설정과 연결을 확인해 주세요. '+error.message);
+      }else if(data?.supplier && typeof data.supplier==='object'){
+        setSupplier(current=>({...current,...data.supplier}));
+        localStorage.setItem('oto_invoice_supplier',JSON.stringify(data.supplier));
+        setSupplierError('');
+      }
+      setSupplierLoading(false);
     }
-  );
+    fetchSharedSupplier();
+    return ()=>{active=false};
+  },[]);
 
   const [issueDate,setIssueDate]=useState(today);
   const [note,setNote]=useState('');
@@ -3222,12 +3245,20 @@ function InvoiceModal({customer,logs,products,onClose}){
       })
     );
   }
-  function saveSupplier(){
-    localStorage.setItem(
-      'oto_invoice_supplier',
-      JSON.stringify(supplier)
-    );
-    alert('공급자 정보가 이 기기에 저장되었습니다.');
+  async function saveSupplier(){
+    if(supplierLoading || supplierSaving)return;
+    setSupplierSaving(true);
+    setSupplierError('');
+    const {error}=await supabase.from('oto_invoice_settings')
+      .upsert({id:1,supplier,updated_at:new Date().toISOString()},{onConflict:'id'});
+    setSupplierSaving(false);
+    if(error){
+      setSupplierError('공통 저장에 실패했습니다: '+error.message);
+      alert('공급자 정보 공통 저장 실패. Supabase SQL 설정 및 권한을 확인해 주세요.\n'+error.message);
+      return;
+    }
+    localStorage.setItem('oto_invoice_supplier',JSON.stringify(supplier));
+    alert('공급자 정보와 입금계좌가 저장되었습니다. 다른 PC와 휴대폰에서도 공유됩니다.');
   }
 
   async function saveCustomerPrices(){
@@ -3277,7 +3308,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     setInvoiceCustomer(invoice.customer||customer);
     setIssueDate(invoice.issueDate||today);
     setNote(invoice.note||'');
-    setSupplier(invoice.supplier||supplier);
+    // 저장된 명세표를 열어도 공통 공급자/입금계좌 설정을 덮어쓰지 않습니다.
     setPriceType(invoice.priceType||invoice.customer?.price_type||customer.price_type||'wholesale');
     setItems((invoice.items||[]).map((item,index)=>({...item,id:item.id||'saved-'+index+'-'+Date.now()})));
     setArchiveOpen(false);
@@ -3367,7 +3398,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       <div className="invoice-toolbar-group">
         <span className="invoice-toolbar-group-title">명세표 편집</span>
         <div className="invoice-toolbar-buttons">
-          <button type="button" onClick={saveSupplier}>공급자 정보 저장</button>
+          <button type="button" onClick={saveSupplier} disabled={supplierLoading||supplierSaving}>{supplierLoading?'공통 정보 불러오는 중':supplierSaving?'저장 중…':'공급자 정보 공통 저장'}</button>{supplierError&&<small style={{color:'#b42318'}}>{supplierError}</small>}
           <button type="button" onClick={addItem}><Plus size={15}/>품목 추가</button>
           <button type="button" onClick={saveCustomerPrices} disabled={priceLoading}>
             {priceLoading?'단가 불러오는 중':'거래처 단가 저장'}
