@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.9';
+const APP_VERSION='6.6.10';
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1973,7 +1973,7 @@ function ProductModal({value,onClose,onSaved}){
       if(result.error)throw result.error;
       // 상품명을 바꾸면 Supabase의 기존 입출고 기록도 영구적으로 변경합니다.
       // 다른 상품과 섞이지 않도록 상품 ID를 우선 사용합니다.
-      const originalProduct=products.find(item=>String(item.id)===String(form.id));
+      const originalProduct=value;
       const oldName=String(originalProduct?.name||'').trim();
       const newName=payload.name;
       if(form.id&&oldName&&oldName!==newName){
