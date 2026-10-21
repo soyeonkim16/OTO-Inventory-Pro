@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.10';
+const APP_VERSION='6.6.11';
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1411,7 +1411,10 @@ function App(){
 
   async function updateStockLog(log,changes){
     const {error}=await supabase.rpc('update_stock_log_safely',{p_log_id:log.id,p_changes:changes});
-    if(error)throw error;
+    if(error){
+      if(String(error.message||'').includes('update_stock_log_safely'))throw new Error('Supabase에 입출고 전체 수정 함수(update_stock_log_safely)가 없거나 실행 권한이 없습니다. SQL 설정을 확인해 주세요. 원본 기록은 변경되지 않았습니다.');
+      throw error;
+    }
     await loadAll({silent:true});
   }
 
@@ -3775,10 +3778,10 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
               <td><button type="button" className="oto-log-product" onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button></td>
               <td className="oto-log-customer">{log.customer_name||log.staff_name||'-'}{log.customer_name&&log.staff_name&&<small>{log.staff_name}</small>}</td>
               <td className={'oto-log-quantity '+(log.movement_type==='in'?'in':'out')}>{log.movement_type==='in'?'+':'-'}{formatNumber(log.quantity)}</td>
-              <td><button type="button" className="ghost oto-log-detail-button" onClick={()=>setExpandedLogId(id=>id===log.id?null:log.id)}>{expandedLogId===log.id?'접기':'상세 보기'}</button></td>
+              <td><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap'}}><button type="button" className="ghost oto-log-detail-button" onClick={()=>setExpandedLogId(id=>id===log.id?null:log.id)}>{expandedLogId===log.id?'접기':'상세 보기'}</button>{isAdmin&&<><button type="button" className="ghost" style={{color:'#155eef',borderColor:'#b2ccff'}} onClick={()=>setEditLog(log)}>수정</button><button type="button" className="log-delete-button" onClick={()=>onDelete(log)}>삭제</button></>}</div></td>
             </tr>
             {expandedLogId===log.id&&<tr className="oto-log-detail-row"><td colSpan="6">
-              {isAdmin&&<div style={{display:'flex',justifyContent:'flex-end',gap:8,padding:'10px 12px 0'}}><button type="button" className="ghost" onClick={()=>setEditLog(log)}>수정</button><button type="button" className="log-delete-button" onClick={()=>onDelete(log)}>삭제</button></div>}
+
               <div className="oto-log-detail-content">
                 <div><b>담당자</b><span>{log.staff_name||'-'}</span></div>
                 <div><b>거래처</b><span>{log.customer_name||'-'}</span></div>
