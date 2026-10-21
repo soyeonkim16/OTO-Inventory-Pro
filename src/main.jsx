@@ -3644,7 +3644,7 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-compact-logs-sty
 .oto-compact-log-table th:nth-child(2){width:70px}
 .oto-compact-log-table th:nth-child(4){width:185px}
 .oto-compact-log-table th:nth-child(5){width:95px;text-align:right}
-.oto-compact-log-table th:nth-child(6){width:105px;text-align:center}
+.oto-compact-log-table th:nth-child(6){width:170px;text-align:center}
 .oto-log-date{color:#667085;font-variant-numeric:tabular-nums;white-space:nowrap}
 .oto-log-badge{display:inline-block;padding:4px 9px;border-radius:7px;font-weight:800;font-size:11px}
 .oto-log-badge.in{background:#ecfdf3;color:#067647}
@@ -3655,6 +3655,11 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-compact-logs-sty
 .oto-log-quantity{text-align:right;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .oto-log-quantity.in{color:#067647}.oto-log-quantity.out{color:#b42318}
 .oto-compact-log-table td:last-child{text-align:center}
+.oto-log-row-actions{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex-wrap:nowrap!important;position:static!important;min-width:0!important}
+.oto-log-row-actions .oto-log-action{position:static!important;inset:auto!important;transform:none!important;float:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;width:auto!important;min-width:36px!important;height:30px!important;min-height:30px!important;margin:0!important;padding:0 9px!important;border-radius:6px!important;background:#fff!important;font-size:11px!important;font-weight:700!important;line-height:1!important;white-space:nowrap!important;cursor:pointer!important}
+.oto-log-row-actions .oto-log-action-detail{border:1px solid #e4e7ec!important;color:#475467!important}
+.oto-log-row-actions .oto-log-action-edit{border:1px solid #b2ccff!important;color:#155eef!important}
+.oto-log-row-actions .oto-log-action-delete{border:1px solid #fda29b!important;color:#d92d20!important}
 .oto-log-detail-button{font-size:12px!important;min-height:30px!important;height:30px!important;padding:0 10px!important;white-space:nowrap}
 .oto-log-detail-row td{background:#f8faff!important;padding:16px!important}
 .oto-log-detail-content{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 18px;text-align:left}
@@ -3778,7 +3783,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
               <td><button type="button" className="oto-log-product" onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button></td>
               <td className="oto-log-customer">{log.customer_name||log.staff_name||'-'}{log.customer_name&&log.staff_name&&<small>{log.staff_name}</small>}</td>
               <td className={'oto-log-quantity '+(log.movement_type==='in'?'in':'out')}>{log.movement_type==='in'?'+':'-'}{formatNumber(log.quantity)}</td>
-              <td><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,flexWrap:'wrap'}}><button type="button" className="ghost oto-log-detail-button" onClick={()=>setExpandedLogId(id=>id===log.id?null:log.id)}>{expandedLogId===log.id?'접기':'상세 보기'}</button>{isAdmin&&<><button type="button" className="ghost" style={{color:'#155eef',borderColor:'#b2ccff'}} onClick={()=>setEditLog(log)}>수정</button><button type="button" className="log-delete-button" onClick={()=>onDelete(log)}>삭제</button></>}</div></td>
+              <td><div className="oto-log-row-actions"><button type="button" className="oto-log-action oto-log-action-detail" onClick={()=>setExpandedLogId(id=>id===log.id?null:log.id)}>{expandedLogId===log.id?'접기':'상세'}</button>{isAdmin&&<><button type="button" className="oto-log-action oto-log-action-edit" onClick={()=>setEditLog(log)}>수정</button><button type="button" className="oto-log-action oto-log-action-delete" onClick={()=>onDelete(log)}>삭제</button></>}</div></td>
             </tr>
             {expandedLogId===log.id&&<tr className="oto-log-detail-row"><td colSpan="6">
 
