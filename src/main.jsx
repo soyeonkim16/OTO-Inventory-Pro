@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.18';
+const APP_VERSION='6.6.19';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -4549,4 +4549,41 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v6618-table-unif
   style.id='oto-v6618-table-unify';
   style.textContent='/* v6.6.18: 재고 탭을 기준으로 목록 헤더/행의 시각적 규격 통일. 정렬 로직과 열 구성은 유지 */\n.app .table-wrap > table,\n.app .customer-table-wrap > table.customer-table,\n.app .oto-compact-log-wrap > table.oto-compact-log-table {\n  border-collapse:separate!important;\n  border-spacing:0!important;\n  width:100%!important;\n}\n.app .table-wrap > table > thead > tr > th,\n.app .customer-table > thead > tr > th,\n.app .oto-compact-log-table > thead > tr > th {\n  height:42px!important;\n  min-height:42px!important;\n  padding:0 12px!important;\n  background:#f8fafc!important;\n  color:#475467!important;\n  border-top:1px solid #e4e7ec!important;\n  border-bottom:1px solid #e4e7ec!important;\n  font-size:12px!important;\n  font-weight:700!important;\n  line-height:1.3!important;\n  vertical-align:middle!important;\n  white-space:nowrap!important;\n}\n.app .table-wrap > table > thead > tr > th:first-child,\n.app .customer-table > thead > tr > th:first-child,\n.app .oto-compact-log-table > thead > tr > th:first-child {\n  border-left:1px solid #e4e7ec!important;\n  border-top-left-radius:8px!important;\n}\n.app .table-wrap > table > thead > tr > th:last-child,\n.app .customer-table > thead > tr > th:last-child,\n.app .oto-compact-log-table > thead > tr > th:last-child {\n  border-right:1px solid #e4e7ec!important;\n  border-top-right-radius:8px!important;\n}\n.app .table-wrap > table > tbody > tr > td,\n.app .customer-table > tbody > tr:not(.customer-inline-detail-row) > td,\n.app .oto-compact-log-table > tbody > tr:not(.oto-log-detail-row) > td {\n  border-bottom:1px solid #edf0f4!important;\n  padding-top:9px!important;\n  padding-bottom:9px!important;\n  vertical-align:middle!important;\n}\n.app .customer-table > thead button,\n.app .oto-compact-log-table > thead button.oto-log-sort-button,\n.app .table-wrap > table > thead button {\n  font-size:inherit!important;\n  font-weight:inherit!important;\n  line-height:inherit!important;\n  color:inherit!important;\n  white-space:nowrap!important;\n}\n.app .customer-table .customer-row-actions {display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex-wrap:nowrap!important;}\n.app .customer-table .customer-row-actions > button.oto-unified-edit,\n.app .customer-table .customer-row-actions > button.oto-unified-delete {\n  display:inline-flex!important;align-items:center!important;justify-content:center!important;\n  min-width:44px!important;width:44px!important;height:27px!important;min-height:27px!important;\n  padding:0 7px!important;border-radius:6px!important;background:#fff!important;\n  font-size:11px!important;font-weight:700!important;white-space:nowrap!important;\n}\n.app .customer-table .customer-row-actions > button.oto-unified-edit {border:1px solid #b2ccff!important;color:#155eef!important;}\n.app .customer-table .customer-row-actions > button.oto-unified-delete {border:1px solid #fda29b!important;color:#d92d20!important;}\n';
   document.head.appendChild(style);
+}
+
+
+/* v6.6.19: 재고 탭과 동일한 목록 표 좌우 여백 (기능 변경 없음) */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v6619-table-gutters')){
+  const gutterStyle=document.createElement('style');
+  gutterStyle.id='oto-v6619-table-gutters';
+  gutterStyle.textContent=`
+    /* 재고·도매처·개인고객·입출고 목록의 좌우 시작/끝 위치 통일 */
+    .app .table-wrap,
+    .app .customer-table-wrap,
+    .app .oto-compact-log-wrap {
+      padding-left:12px!important;
+      padding-right:12px!important;
+      box-sizing:border-box!important;
+      width:100%!important;
+    }
+    .app .customer-table-wrap > .customer-table,
+    .app .oto-compact-log-wrap > .oto-compact-log-table {
+      width:100%!important;
+      border:1px solid #e4e7ec!important;
+      border-radius:10px!important;
+      border-collapse:separate!important;
+      border-spacing:0!important;
+      box-sizing:border-box!important;
+    }
+    /* 좌우 여백은 표의 바깥에만 부여하고 셀 간격은 유지 */
+    @media(max-width:700px){
+      .app .table-wrap,
+      .app .customer-table-wrap,
+      .app .oto-compact-log-wrap {
+        padding-left:8px!important;
+        padding-right:8px!important;
+      }
+    }
+  `;
+  document.head.appendChild(gutterStyle);
 }
