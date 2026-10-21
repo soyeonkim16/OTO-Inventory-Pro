@@ -5,7 +5,30 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.11';
+const APP_VERSION='6.6.14';
+/* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
+if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
+ const st=document.createElement('style');
+ st.id='oto-unified-action-style';
+ st.textContent=`
+ .app button.oto-unified-edit,.app button.oto-unified-delete{
+   position:static!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+   width:auto!important;min-width:52px!important;height:30px!important;min-height:30px!important;
+   padding:0 11px!important;margin:0!important;border-radius:7px!important;
+   background:#fff!important;font-size:12px!important;font-weight:700!important;line-height:1!important;
+   white-space:nowrap!important;box-sizing:border-box!important;flex:0 0 auto!important;
+ }
+ .app button.oto-unified-edit{border:1px solid #b2ccff!important;color:#155eef!important;}
+ .app button.oto-unified-delete{border:1px solid #fda29b!important;color:#d92d20!important;}
+ .app button.oto-unified-edit:hover{background:#eef4ff!important;}
+ .app button.oto-unified-delete:hover{background:#fff1f0!important;}
+ .app button.oto-unified-edit:disabled,.app button.oto-unified-delete:disabled{opacity:.5!important;cursor:not-allowed!important;}
+ .customer-row-actions,.oto-log-row-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex-wrap:nowrap!important;}
+ @media(max-width:620px){.app button.oto-unified-edit,.app button.oto-unified-delete{min-width:46px!important;padding:0 8px!important;font-size:11px!important;}}
+ `;
+ document.head.appendChild(st);
+}
+
 
 // 거래명세표 화면 전용 상단 메뉴바
 // 기존 .invoice-toolbar / .no-print 스타일과 완전히 분리합니다.
@@ -1716,8 +1739,8 @@ function App(){
                   <td data-label="재고"><b>{formatNumber(p.quantity)}</b> <small>/ 최소 {formatNumber(p.minimum_quantity)}</small></td>
                   <td data-label="상태"><Badge p={p}/></td>
                   <td data-label="관리"><div className="row-actions">
-                    {isAdmin&&<button onClick={()=>setProductModal(p)}>수정</button>}
-                    {isAdmin&&<button className="danger-button" onClick={()=>deleteProduct(p)}>삭제</button>}
+                    {isAdmin&&<button className="oto-unified-edit" onClick={()=>setProductModal(p)}>수정</button>}
+                    {isAdmin&&<button className="danger-button oto-unified-delete" onClick={()=>deleteProduct(p)}>삭제</button>}
                   </div></td>
                 </tr>)}
                 {!filtered.length&&<tr><td colSpan="10"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
@@ -1894,7 +1917,7 @@ function ProductOptionManager({kind,onClose,onChanged}){
   }
   return <Modal title={`${title} 관리`} onClose={onClose}><div style={{display:'grid',gap:12}}>
     <div style={{display:'flex',gap:8}}><input style={{flex:1,minWidth:0}} placeholder={`새 ${title} 입력`} value={name} onChange={e=>setName(e.target.value)}/><button type="button" className="primary" disabled={busy||!name.trim()} onClick={add}>추가</button></div>
-    {items.filter(item=>item!=='없음').map(item=><div key={item} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid #eee'}}><strong style={{flex:1}}>{item}</strong><button type="button" className="ghost" disabled={busy} onClick={()=>rename(item)}>수정</button><button type="button" className="danger-button" disabled={busy} onClick={()=>remove(item)}>삭제</button></div>)}
+    {items.filter(item=>item!=='없음').map(item=><div key={item} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid #eee'}}><strong style={{flex:1}}>{item}</strong><button type="button" className="ghost oto-unified-edit" disabled={busy} onClick={()=>rename(item)}>수정</button><button type="button" className="danger-button oto-unified-delete" disabled={busy} onClick={()=>remove(item)}>삭제</button></div>)}
     {(error||loadError)&&<div className="error">{error||loadError}</div>}
     <small>사용 중인 상품의 옵션은 삭제하거나 이름을 변경할 수 없습니다. '없음'은 기본 선택지입니다.</small>
   </div></Modal>;
@@ -2053,7 +2076,7 @@ function PurchaseChannelManager({onClose,onChanged}){
   const remove=async(old)=>{if(!window.confirm(`구매처 '${old}'를 목록에서 삭제할까요?\n기존 고객 및 입출고 기록은 삭제되지 않습니다.`))return;setBusy(true);setError('');try{const {error:e}=await supabase.from('purchase_channels').delete().eq('name',old);if(e)throw e;await refresh();onChanged?.()}catch(e){setError(normalizeError(e))}finally{setBusy(false)}};
   return <Modal title="구매처 관리" onClose={onClose}><div style={{display:'grid',gap:12}}>
     <div style={{display:'flex',gap:8}}><input style={{flex:1,minWidth:0}} placeholder="새 구매처 이름" value={name} onChange={e=>setName(e.target.value)}/><button type="button" className="primary" disabled={busy||!name.trim()} onClick={save}>추가</button></div>
-    {channels.map(c=><div key={c} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid #eee'}}><strong style={{flex:1}}>{c}</strong><button type="button" className="ghost" disabled={busy} onClick={()=>rename(c)}>수정</button><button type="button" className="danger-button" disabled={busy} onClick={()=>remove(c)}>삭제</button></div>)}
+    {channels.map(c=><div key={c} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid #eee'}}><strong style={{flex:1}}>{c}</strong><button type="button" className="ghost oto-unified-edit" disabled={busy} onClick={()=>rename(c)}>수정</button><button type="button" className="danger-button oto-unified-delete" disabled={busy} onClick={()=>remove(c)}>삭제</button></div>)}
     {!channels.length&&<small>등록된 구매처가 없습니다.</small>}{(error||channelError)&&<div className="error">{error||channelError}</div>}
     <small>구매처 삭제·이름 변경은 기존 고객이나 과거 거래 기록을 자동 변경하지 않습니다.</small>
   </div></Modal>;
@@ -2858,8 +2881,8 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
           <th><button onClick={()=>changeSort('name')}>{customerMode==='personal'?'고객명':'거래처명'} <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th>{customerMode==='personal'&&<th>구매처</th>}<th>단가 구분</th><th><button onClick={()=>changeSort('totalAmount')}>누적 금액 <span>{sortMark('totalAmount')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
-        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td>{customerMode==='personal'&&<td>{c.purchase_channel||'-'}</td>}<td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{Math.max(0,stats.totalAmount).toLocaleString()}원</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan={customerMode==='personal'?10:9}>{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
-        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}{customerMode==='personal'?' · 구매처 '+(c.purchase_channel||'미지정'):''}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td>{customerMode==='personal'&&<td>{c.purchase_channel||'-'}</td>}<td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{Math.max(0,stats.totalAmount).toLocaleString()}원</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button className="oto-unified-edit" onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button oto-unified-delete" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan={customerMode==='personal'?10:9}>{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}{customerMode==='personal'?' · 구매처 '+(c.purchase_channel||'미지정'):''}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button className="oto-unified-edit" onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button oto-unified-delete" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
         {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
 
@@ -3675,6 +3698,8 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-compact-logs-sty
 @media(max-width:700px){.oto-compact-log-wrap{padding:0 8px 10px}.oto-log-detail-content{grid-template-columns:repeat(2,minmax(0,1fr))}.oto-log-pagination{flex-wrap:wrap}}
 `;document.head.appendChild(el)}
 
+if(typeof document!=='undefined'&&!document.getElementById('oto-v6615-log-style')){const style=document.createElement('style');style.id='oto-v6615-log-style';style.textContent='\n/* v6.6.15 입출고 표: 재고 탭과 동일한 정렬 헤더 및 행 버튼 정렬 */\n.oto-compact-log-table th{height:44px!important;padding:0 13px!important;background:#f8fafc!important;color:#344054!important;font-size:12px!important;font-weight:800!important;vertical-align:middle!important;white-space:nowrap!important}\n.oto-compact-log-table .oto-log-sort-button{appearance:none!important;border:0!important;background:transparent!important;padding:0!important;margin:0!important;color:inherit!important;font:inherit!important;font-weight:inherit!important;cursor:pointer!important;white-space:nowrap!important;display:inline-flex!important;align-items:center!important;gap:3px!important;min-height:30px!important}\n.oto-compact-log-table .oto-log-sort-button span{font-size:11px!important;color:#98a2b3!important}\n.oto-compact-log-table .oto-log-sort-button span.active{color:#2563eb!important}\n.oto-compact-log-table th:nth-child(5),.oto-compact-log-table td:nth-child(5){text-align:center!important}\n.oto-compact-log-table th:last-child,.oto-compact-log-table td:last-child{text-align:right!important}\n.oto-compact-log-table th:last-child{width:170px!important}\n.oto-log-row-actions{justify-content:flex-end!important}\n';document.head.appendChild(style);}
+
 function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChange}){
   const [editLog,setEditLog]=useState(null);
   const [inProductId,setInProductId]=useState('');
@@ -3687,6 +3712,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
   const [dateDrafts,setDateDrafts]=useState({});
   const [dateSavingId,setDateSavingId]=useState('');
   const [page,setPage]=useState(1);
+  const [logSort,setLogSort]=useState({key:'date',direction:'desc'});
   const [expandedLogId,setExpandedLogId]=useState(null);
   const pageSize=30;
 
@@ -3712,10 +3738,23 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
   }),[logs,query,type,from,to]);
 
   useEffect(()=>{setPage(1);setExpandedLogId(null)},[query,type,from,to]);
-  const sortedRows=useMemo(()=>[...rows].sort((a,b)=>
-    stockLogDate(b).localeCompare(stockLogDate(a))||
-    String(b.created_at||'').localeCompare(String(a.created_at||''))
-  ),[rows]);
+  const logSortValue=(log,key)=>{
+    switch(key){
+      case 'date':return stockLogDate(log)||'';
+      case 'type':return log.movement_type==='in'?'입고':'출고';
+      case 'product':return log.product_name||'';
+      case 'customer':return log.customer_name||log.staff_name||'';
+      case 'quantity':return Number(log.quantity)||0;
+      default:return '';
+    }
+  };
+  const sortedRows=useMemo(()=>[...rows].sort((a,b)=>{
+    const av=logSortValue(a,logSort.key),bv=logSortValue(b,logSort.key);
+    const comparison=typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),'ko',{numeric:true,sensitivity:'base'});
+    return comparison*(logSort.direction==='asc'?1:-1)||String(b.created_at||'').localeCompare(String(a.created_at||''));
+  }),[rows,logSort]);
+  const changeLogSort=key=>{setLogSort(current=>current.key===key?{key,direction:current.direction==='asc'?'desc':'asc'}:{key,direction:'asc'});setPage(1);setExpandedLogId(null);};
+  const LogSortHead=({sortKey,children})=><th><button type="button" className="oto-log-sort-button" onClick={()=>changeLogSort(sortKey)} title={`${children} 오름차순/내림차순 정렬`}>{children}<span className={logSort.key===sortKey?'active':''}>{logSort.key===sortKey?(logSort.direction==='asc'?' ↑':' ↓'):' ↕'}</span></button></th>;
   const totalPages=Math.max(1,Math.ceil(sortedRows.length/pageSize));
   const currentPage=Math.min(page,totalPages);
   const visibleRows=sortedRows.slice((currentPage-1)*pageSize,currentPage*pageSize);
@@ -3774,7 +3813,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
     <div className="log-summary">검색 결과 {rows.length.toLocaleString()}건 · 입고 {rows.filter(l=>l.movement_type==='in').reduce((a,l)=>a+Number(l.quantity),0).toLocaleString()}개 · 출고 {rows.filter(l=>l.movement_type==='out').reduce((a,l)=>a+Number(l.quantity),0).toLocaleString()}개</div>
     <div className="oto-compact-log-wrap">
       <table className="oto-compact-log-table">
-        <thead><tr><th>날짜</th><th>구분</th><th>상품명</th><th>거래처 / 담당자</th><th>수량</th><th>상세</th></tr></thead>
+        <thead><tr><LogSortHead sortKey="date">날짜</LogSortHead><LogSortHead sortKey="type">구분</LogSortHead><LogSortHead sortKey="product">상품명</LogSortHead><LogSortHead sortKey="customer">거래처 / 담당자</LogSortHead><LogSortHead sortKey="quantity">수량</LogSortHead><th>관리</th></tr></thead>
         <tbody>
           {visibleRows.map(log=><React.Fragment key={log.id}>
             <tr className={expandedLogId===log.id?'oto-log-selected':''}>
@@ -3783,7 +3822,7 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
               <td><button type="button" className="oto-log-product" onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button></td>
               <td className="oto-log-customer">{log.customer_name||log.staff_name||'-'}{log.customer_name&&log.staff_name&&<small>{log.staff_name}</small>}</td>
               <td className={'oto-log-quantity '+(log.movement_type==='in'?'in':'out')}>{log.movement_type==='in'?'+':'-'}{formatNumber(log.quantity)}</td>
-              <td><div className="oto-log-row-actions"><button type="button" className="oto-log-action oto-log-action-detail" onClick={()=>setExpandedLogId(id=>id===log.id?null:log.id)}>{expandedLogId===log.id?'접기':'상세'}</button>{isAdmin&&<><button type="button" className="oto-log-action oto-log-action-edit" onClick={()=>setEditLog(log)}>수정</button><button type="button" className="oto-log-action oto-log-action-delete" onClick={()=>onDelete(log)}>삭제</button></>}</div></td>
+              <td><div className="oto-log-row-actions"><button type="button" className="oto-log-action oto-log-action-detail" onClick={()=>setExpandedLogId(id=>id===log.id?null:log.id)}>{expandedLogId===log.id?'접기':'상세'}</button>{isAdmin&&<><button type="button" className="oto-log-action oto-log-action-edit oto-unified-edit" onClick={()=>setEditLog(log)}>수정</button><button type="button" className="oto-log-action oto-log-action-delete oto-unified-delete" onClick={()=>onDelete(log)}>삭제</button></>}</div></td>
             </tr>
             {expandedLogId===log.id&&<tr className="oto-log-detail-row"><td colSpan="6">
 
