@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.7.0';
+const APP_VERSION='6.7.2';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -1840,6 +1840,7 @@ function Login(){
   const [password,setPassword]=useState('');
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
+  const [showPassword,setShowPassword]=useState(false);
 
   function toAuthEmail(value){
     const normalized=value.trim().toLowerCase();
@@ -1903,13 +1904,14 @@ function Login(){
     </label>
     <label>비밀번호
       <input
-        type="password"
+        type={showPassword?'text':'password'}
         autoComplete="current-password"
         value={password}
         onChange={e=>setPassword(e.target.value)}
         required
       />
     </label>
+    <label className="login-show-pw"><input type="checkbox" checked={showPassword} onChange={e=>setShowPassword(e.target.checked)}/>비밀번호 보기</label>
     {error&&<div className="error">{error}</div>}
     <button className="primary full" disabled={saving}>{saving?'로그인 중…':'로그인'}</button>
   </form></div>;
@@ -2096,19 +2098,21 @@ function ProductModal({value,onClose,onSaved}){
           </div>
         </div>
       </label>
+      <h4 className="form-section full">기본 정보</h4>
       <Field label="상품명" value={form.name} set={v=>setForm({...form,name:v})}/>
       <div style={{display:'flex',gap:6,alignItems:'flex-end',minWidth:0}}><div style={{flex:1,minWidth:0}}><Select label="사이즈" value={form.size||'없음'} set={v=>setForm({...form,size:v})} options={[...new Set([...sizeOptions.items,form.size||'없음'])]}/></div><button type="button" className="ghost" style={{height:40,whiteSpace:'nowrap'}} onClick={()=>setOptionManager('size')}>관리</button></div>
       <div style={{display:'flex',gap:6,alignItems:'flex-end',minWidth:0}}><div style={{flex:1,minWidth:0}}><Select label="색상" value={form.color||'없음'} set={v=>setForm({...form,color:v})} options={[...new Set([...colorOptions.items,form.color||'없음'])]}/></div><button type="button" className="ghost" style={{height:40,whiteSpace:'nowrap'}} onClick={()=>setOptionManager('color')}>관리</button></div>
       <Field label="카테고리" value={form.category} set={v=>setForm({...form,category:v})}/>
       {String(form.category||'').trim()==='택배비'&&<div className="full" style={{padding:'10px 12px',borderRadius:10,background:'#fff7ed',fontSize:13}}>택배비 상품은 <b>도매 단가</b>를 택배 1건(또는 1박스) 금액으로 사용하며 VIP/VVIP 할인은 적용하지 않습니다. 출고할 때 수량으로 택배 건수를 조정하세요.</div>}
-      {String(form.category||'').trim()!=='택배비'&&<><Field label="현재 수량" type="number" value={form.quantity} set={v=>setForm({...form,quantity:v})}/><Field label="최소 수량" type="number" value={form.minimum_quantity} set={v=>setForm({...form,minimum_quantity:v})}/></>}
+      {String(form.category||'').trim()!=='택배비'&&<><h4 className="form-section full">재고 수량</h4><Field label="현재 수량" type="number" value={form.quantity} set={v=>setForm({...form,quantity:v})}/><Field label="최소 수량" type="number" value={form.minimum_quantity} set={v=>setForm({...form,minimum_quantity:v})}/></>}
+      <h4 className="form-section full">단가 (원)</h4>
       <Field label="도매 단가" type="number" value={form.wholesale_price||0} set={v=>setForm({...form,wholesale_price:v})}/>
       <Field label="도매 단가(VIP)" type="number" value={form.vip_price||0} set={v=>setForm({...form,vip_price:v})}/>
       <Field label="도매 단가(VVIP)" type="number" value={form.vvip_price||0} set={v=>setForm({...form,vvip_price:v})}/>
       <Field label="소매 단가 (VAT 포함)" type="number" value={form.retail_price||0} set={v=>setForm({...form,retail_price:v})}/>
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})} full/>
       {error&&<div className="error full">{error}</div>}
-      <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
+      <div className="form-footer full"><button type="button" onClick={onClose} disabled={saving}>취소</button><button className="primary" disabled={saving}>{saving?'저장 중…':'저장'}</button></div>
     </form>
     {optionManager&&<ProductOptionManager kind={optionManager} onClose={()=>{setOptionManager(null);sizeOptions.refresh();colorOptions.refresh();}} onChanged={()=>{sizeOptions.refresh();colorOptions.refresh();}}/>}
   </Modal>;
@@ -2357,23 +2361,25 @@ function CustomerModal({value,onClose,onSaved}){
   }
   return <Modal title={form.id?'고객 수정':'고객 등록'} onClose={onClose}>
     <form onSubmit={save} className="form-grid">
+      <h4 className="form-section full">기본 정보</h4>
       <Select label="고객 유형" value={form.customer_type||'business'} set={v=>setForm({...form,customer_type:v,price_type:v==='personal'?'retail':(form.price_type==='retail'?'wholesale':form.price_type)})} options={['business','personal']} labels={{business:'도매 거래처',personal:'개인고객'}}/>
       {form.customer_type==='personal'&&<Select label="구매처" value={form.purchase_channel||''} set={v=>setForm({...form,purchase_channel:v})} options={['',...new Set([...channels,...(form.purchase_channel?[form.purchase_channel]:[])])]} labels={{'':'구매처 미지정'}}/>}
       <Field label={form.customer_type==='personal'?'고객명 / 닉네임':'거래처명'} value={form.name} set={v=>setForm({...form,name:v})} full/>
       {form.customer_type!=='personal'&&<Field label="받는 사람" value={form.recipient_name||''} set={v=>setForm({...form,recipient_name:v})}/>}
       <Field label="연락처" value={form.phone||''} set={v=>setForm({...form,phone:v})}/>
+      <h4 className="form-section full">배송지</h4>
       <div className="full address">
         <label>우편번호<input value={form.postal_code||''} readOnly/></label>
         <label>주소<input value={form.address||''} readOnly/></label>
         <button type="button" className="ghost" onClick={()=>postcode(data=>setForm({...form,postal_code:data.zonecode,address:data.roadAddress||data.jibunAddress}))}><MapPin size={17}/>주소검색</button>
       </div>
       <Field label="상세주소" value={form.address_detail||''} set={v=>setForm({...form,address_detail:v})} full/>
-      {form.customer_type!=='personal'&&<><Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
+      {form.customer_type!=='personal'&&<><h4 className="form-section full">거래 설정</h4><Select label="택배사" value={form.courier||''} set={v=>setForm({...form,courier:v})} options={courierOptions}/>
       <Select label="기본 단가 구분" value={form.price_type||'wholesale'} set={v=>setForm({...form,price_type:v})} options={['wholesale','vip','vvip','retail']} labels={{wholesale:'도매가(VAT별도)',vip:'도매가(VIP·VAT별도)',vvip:'도매가(VVIP·VAT별도)',retail:'소매가(VAT포함)'}}/>
       </>}
       <Field label="메모" value={form.memo||''} set={v=>setForm({...form,memo:v})}/>
       {error&&<div className="error full">{error}</div>}
-      <button className="primary full" disabled={saving}>{saving?'저장 중…':'저장'}</button>
+      <div className="form-footer full"><button type="button" onClick={onClose} disabled={saving}>취소</button><button className="primary" disabled={saving}>{saving?'저장 중…':'저장'}</button></div>
     </form>
   </Modal>;
 }
@@ -2440,6 +2446,19 @@ function SalesDashboard({logs,products,customers}){
     return {rows,gross,returns,net:gross-returns,count:rows.length,months};
   },[makeRows,year]);
 
+  // v6.7.2: 월 이동 / 전월 대비 / 비중 막대
+  const monthKeyOk=/^\d{4}-\d{2}$/.test(month);
+  const monthKeyShift=n=>{const [y,m]=month.split('-').map(Number);const d=new Date(y,m-1+n,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
+  const shiftMonth=n=>{if(monthKeyOk)setMonth(monthKeyShift(n));};
+  const prevMonthKey=monthKeyOk?monthKeyShift(-1):'';
+  const prevNet=useMemo(()=>{
+    if(!prevMonthKey)return 0;
+    return makeRows.filter(row=>row.date.slice(0,7)===prevMonthKey).reduce((sum,row)=>sum+(row.isReturn?-row.amount:row.amount),0);
+  },[makeRows,prevMonthKey]);
+  const maxCustomerNet=Math.max(0,...report.byCustomer.map(row=>row.net));
+  const maxMonthNet=Math.max(0,...yearlyReport.months.map(row=>row.net));
+  const sharePct=(value,max)=>max>0?Math.max(0,Math.min(100,value/max*100)):0;
+
   function download(){
     if(viewMode==='yearly'){
       const data=[['월','출고매출','반품금액','순매출','거래건수'],...yearlyReport.months.map(row=>[row.label,row.gross,row.returns,row.net,row.count])];
@@ -2464,18 +2483,19 @@ function SalesDashboard({logs,products,customers}){
           <button type="button" onClick={()=>setViewMode('monthly')} style={{border:0,borderRadius:7,padding:'8px 14px',fontWeight:700,cursor:'pointer',background:viewMode==='monthly'?'#fff':'transparent',color:viewMode==='monthly'?'#155eef':'#667085',boxShadow:viewMode==='monthly'?'0 1px 3px rgba(16,24,40,.12)':'none'}}>월별</button>
           <button type="button" onClick={()=>setViewMode('yearly')} style={{border:0,borderRadius:7,padding:'8px 14px',fontWeight:700,cursor:'pointer',background:viewMode==='yearly'?'#fff':'transparent',color:viewMode==='yearly'?'#155eef':'#667085',boxShadow:viewMode==='yearly'?'0 1px 3px rgba(16,24,40,.12)':'none'}}>연별</button>
         </div>
-        {viewMode==='monthly'?<input type="month" value={month} onChange={event=>setMonth(event.target.value)} style={{minHeight:42,padding:'0 12px',border:'1px solid #d0d5dd',borderRadius:10}}/>:<select value={year} onChange={event=>setYear(event.target.value)} style={{minHeight:42,padding:'0 34px 0 12px',border:'1px solid #d0d5dd',borderRadius:10,background:'#fff'}}>{Array.from(new Set([currentYear,...makeRows.map(row=>row.date.slice(0,4))])).filter(Boolean).sort((a,b)=>b.localeCompare(a)).map(y=><option key={y} value={y}>{y}년</option>)}</select>}
+        {viewMode==='monthly'?<span className="month-nav-group"><button type="button" className="ghost" onClick={()=>shiftMonth(-1)} aria-label="이전 달" disabled={!monthKeyOk}>‹</button><input type="month" value={month} onChange={event=>setMonth(event.target.value)} style={{minHeight:42,padding:'0 12px',border:'1px solid #d0d5dd',borderRadius:10}}/><button type="button" className="ghost" onClick={()=>shiftMonth(1)} aria-label="다음 달" disabled={!monthKeyOk}>›</button>{month!==currentMonth&&<button type="button" className="ghost" onClick={()=>setMonth(currentMonth)}>이번 달</button>}</span>:<select value={year} onChange={event=>setYear(event.target.value)} style={{minHeight:42,padding:'0 34px 0 12px',border:'1px solid #d0d5dd',borderRadius:10,background:'#fff'}}>{Array.from(new Set([currentYear,...makeRows.map(row=>row.date.slice(0,4))])).filter(Boolean).sort((a,b)=>b.localeCompare(a)).map(y=><option key={y} value={y}>{y}년</option>)}</select>}
         <button className="ghost" onClick={download}><Download size={17}/>엑셀 저장</button>
       </div>
     </div>
 
     {viewMode==='monthly'?<>
       <div className="stats" style={{marginTop:18}}><SalesStat label="출고 매출(VAT포함)" value={report.gross} suffix="원"/><SalesStat label="반품 금액" value={report.returns} suffix="원" danger={report.returns>0}/><SalesStat label="순매출(VAT포함)" value={report.net} suffix="원"/><SalesStat label="거래 건수" value={report.rows.length} suffix="건"/></div>
-      <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>거래처</th><th>출고매출</th><th>반품액</th><th>순매출</th></tr></thead><tbody>{report.byCustomer.map(row=><tr key={row.customer}><td data-label="거래처"><b>{row.customer}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td></tr>)}{!report.byCustomer.length&&<tr><td colSpan="4"><Empty text="선택한 달의 매출내역이 없습니다."/></td></tr>}</tbody></table></div>
+      {prevMonthKey&&<p className="sales-compare">{prevNet>0?<>전월({Number(prevMonthKey.slice(5))}월) 순매출 <b>{prevNet.toLocaleString()}원</b> 대비 <b className={report.net>=prevNet?'up':'down'}>{report.net>=prevNet?'+':'-'}{Math.abs((report.net-prevNet)/prevNet*100).toFixed(1)}% ({report.net>=prevNet?'+':'-'}{Math.abs(report.net-prevNet).toLocaleString()}원)</b></>:<>전월({Number(prevMonthKey.slice(5))}월)에는 비교할 매출 기록이 없습니다.</>}</p>}
+      <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>거래처</th><th>출고매출</th><th>반품액</th><th>순매출</th></tr></thead><tbody>{report.byCustomer.map(row=><tr key={row.customer}><td data-label="거래처"><b>{row.customer}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><span className="share-cell"><b>{row.net.toLocaleString()}원</b><i className="share-bar" style={{width:sharePct(row.net,maxCustomerNet)+'%'}}/></span></td></tr>)}{!report.byCustomer.length&&<tr><td colSpan="4"><Empty text="선택한 달의 매출내역이 없습니다."/></td></tr>}</tbody></table></div>
       <div className="table-wrap" style={{marginTop:22}}><table><thead><tr><th>날짜</th><th>구분</th><th>거래처</th><th>품목</th><th>수량</th><th>단가</th><th>VAT</th><th>공급가액</th><th>부가세</th><th>합계</th><th>명세표</th></tr></thead><tbody>{report.rows.map(row=><tr key={row.id}><td data-label="날짜">{row.date}</td><td data-label="구분"><b style={{color:row.isReturn?'#d92d20':'inherit'}}>{row.isReturn?'반품':'출고'}</b></td><td data-label="거래처">{row.customer}</td><td data-label="품목">{row.product}</td><td data-label="수량">{row.isReturn?'-':''}{row.quantity.toLocaleString()}개</td><td data-label="단가">{row.unitPrice.toLocaleString()}원</td><td data-label="VAT">{row.priceType==='retail'?'포함':'별도'}</td><td data-label="공급가액">{row.isReturn?'-':''}{row.supply.toLocaleString()}원</td><td data-label="부가세">{row.isReturn?'-':''}{row.tax.toLocaleString()}원</td><td data-label="합계"><b>{row.isReturn?'-':''}{row.amount.toLocaleString()}원</b></td><td data-label="명세표"><button type="button" className="ghost" onClick={()=>openInvoice(row)} style={{padding:'7px 10px',fontSize:12,whiteSpace:'nowrap',color:row.isReturn?'#d92d20':undefined,borderColor:row.isReturn?'#fecdca':undefined}}><Printer size={14}/>{row.isReturn?'반품 명세표':'명세표'}</button></td></tr>)}{!report.rows.length&&<tr><td colSpan="11"><Empty text="선택한 달의 상세 거래내역이 없습니다."/></td></tr>}</tbody></table></div>
     </>:<>
       <div className="stats" style={{marginTop:18}}><SalesStat label="연간 출고매출(VAT포함)" value={yearlyReport.gross} suffix="원"/><SalesStat label="연간 반품금액" value={yearlyReport.returns} suffix="원" danger={yearlyReport.returns>0}/><SalesStat label="연간 순매출(VAT포함)" value={yearlyReport.net} suffix="원"/><SalesStat label="연간 거래 건수" value={yearlyReport.count} suffix="건"/></div>
-      <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>월</th><th>출고매출</th><th>반품금액</th><th>순매출</th><th>거래 건수</th></tr></thead><tbody>{yearlyReport.months.map(row=><tr key={row.month}><td data-label="월"><b>{row.label}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품금액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><b>{row.net.toLocaleString()}원</b></td><td data-label="거래 건수">{row.count.toLocaleString()}건</td></tr>)}</tbody></table></div>
+      <div className="table-wrap" style={{marginTop:18}}><table><thead><tr><th>월</th><th>출고매출</th><th>반품금액</th><th>순매출</th><th>거래 건수</th></tr></thead><tbody>{yearlyReport.months.map(row=><tr key={row.month}><td data-label="월"><b>{row.label}</b></td><td data-label="출고매출">{row.gross.toLocaleString()}원</td><td data-label="반품금액">{row.returns?`-${row.returns.toLocaleString()}원`:'0원'}</td><td data-label="순매출"><span className="share-cell"><b>{row.net.toLocaleString()}원</b><i className="share-bar" style={{width:sharePct(row.net,maxMonthNet)+'%'}}/></span></td><td data-label="거래 건수">{row.count.toLocaleString()}건</td></tr>)}</tbody></table></div>
     </>}
     <p style={{margin:'14px 2px 0',fontSize:12,color:'#667085'}}>VAT 기준: 도매·VIP·VVIP 단가는 VAT 별도, 소매가는 VAT 포함으로 계산합니다. 과거 기록에 저장 단가가 없는 경우 현재 상품 단가와 거래처 단가 설정을 기준으로 계산됩니다.</p>
   </section>{invoiceData&&<InvoiceModal customer={invoiceData.customer} products={products} logs={invoiceData.logs} onClose={()=>setInvoiceData(null)}/>}</>;
@@ -2620,6 +2640,7 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
   const [receivableError,setReceivableError]=useState('');
   const [legacyCount,setLegacyCount]=useState(()=>readLegacyReceivableEntries().length);
   const [detailCustomer,setDetailCustomer]=useState(null);
+  const [receivableOnly,setReceivableOnly]=useState(false);
 
   async function loadReceivables({silent=false}={}){
     if(!silent)setReceivableLoading(true);
@@ -2722,18 +2743,25 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
   },[customers,logs,products]);
 
   const rows=useMemo(()=>{
-    const filtered=customers.filter(c=>(customerFilter==='all'||(c.customer_type||'business')===customerFilter)&&(customerMode!=='personal'||!purchaseFilter||(c.purchase_channel||'')===purchaseFilter)&&[c.name,c.recipient_name,c.phone,c.address,c.address_detail].join(' ').toLowerCase().includes(query.toLowerCase()));
+    const filtered=customers.filter(c=>(customerFilter==='all'||(c.customer_type||'business')===customerFilter)&&(customerMode!=='personal'||!purchaseFilter||(c.purchase_channel||'')===purchaseFilter)&&(!receivableOnly||(receivableBalanceByCustomer[String(c.id)]||0)>0)&&[c.name,c.recipient_name,c.phone,c.address,c.address_detail].join(' ').toLowerCase().includes(query.toLowerCase()));
     return [...filtered].sort((a,b)=>{
       const aStats=customerStats[a.id]||{totalAmount:0,lastOut:''};
       const bStats=customerStats[b.id]||{totalAmount:0,lastOut:''};
       let av='',bv='';
       if(sort.key==='totalAmount'){av=aStats.totalAmount;bv=bStats.totalAmount}
       else if(sort.key==='lastOut'){av=aStats.lastOut||'';bv=bStats.lastOut||''}
+      else if(sort.key==='receivable'){av=receivableBalanceByCustomer[String(a.id)]||0;bv=receivableBalanceByCustomer[String(b.id)]||0}
       else{av=(a[sort.key]||'').toString();bv=(b[sort.key]||'').toString()}
       const result=typeof av==='number'?av-bv:av.localeCompare(bv,'ko',{numeric:true,sensitivity:'base'});
       return sort.direction==='asc'?result:-result;
     });
-  },[customers,query,sort,customerStats,customerFilter,customerMode,purchaseFilter]);
+  },[customers,query,sort,customerStats,customerFilter,customerMode,purchaseFilter,receivableBalanceByCustomer,receivableOnly]);
+
+  // v6.7.2: 미수금 요약 (현재 보고 있는 유형 기준)
+  const modeCustomers=customers.filter(c=>customerFilter==='all'||(c.customer_type||'business')===customerFilter);
+  const dueList=modeCustomers.filter(c=>(receivableBalanceByCustomer[String(c.id)]||0)>0);
+  const dueCount=dueList.length;
+  const totalDue=dueList.reduce((sum,c)=>sum+(receivableBalanceByCustomer[String(c.id)]||0),0);
 
   function changeSort(key){setSort(current=>current.key===key?{key,direction:current.direction==='asc'?'desc':'asc'}:{key,direction:'asc'})}
   function sortMark(key){if(sort.key!==key)return '↕';return sort.direction==='asc'?'▲':'▼'}
@@ -2934,14 +2962,22 @@ function Customers({customerMode="business",customers,products,logs,isAdmin,prof
       <div className="tab-intro-actions">{customerMode==='personal'&&isAdmin&&<button type="button" className="ghost" onClick={()=>setManageChannels(true)}>구매처 관리</button>}{isAdmin&&<button className="primary" onClick={onAdd}><Plus size={18}/>{customerMode==='personal'?'개인고객 등록':'도매처 등록'}</button>}</div>
     </div>
     <div className="toolbar"><div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>{customerMode==='personal'&&<select aria-label="구매처 필터" value={purchaseFilter} onChange={e=>setPurchaseFilter(e.target.value)}><option value="">전체 구매처</option>{[...new Set([...channels,...customers.filter(c=>c.customer_type==='personal').map(c=>c.purchase_channel).filter(Boolean)])].map(c=><option key={c} value={c}>{c}</option>)}</select>}<div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명, 받는 사람, 연락처 검색"/></div></div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{legacyCount>0&&<button className="ghost" onClick={migrateLegacyReceivables}>로컬 미수금 {legacyCount}건 가져오기</button>}<button className="ghost" onClick={()=>loadReceivables()} disabled={receivableLoading}><RefreshCw size={16}/>{receivableLoading?'불러오는 중':'미수금 새로고침'}</button></div></div>
+    <div className="customer-summary-strip">
+      <span className="cs-count"><b>{rows.length.toLocaleString()}</b>곳{rows.length!==modeCustomers.length&&<> / 전체 {modeCustomers.length.toLocaleString()}곳</>}</span>
+      <span className={'cs-due'+(totalDue>0?' on':'')}>총 미수금 <b>{totalDue.toLocaleString()}원</b><small>({dueCount}곳)</small></span>
+      <div className="customer-filter-chips" role="group" aria-label="미수금 필터">
+        <button type="button" className={'chip'+(!receivableOnly?' active':'')} onClick={()=>setReceivableOnly(false)}>전체</button>
+        <button type="button" className={'chip'+(receivableOnly?' active':'')+(dueCount>0?' warn':'')} onClick={()=>setReceivableOnly(true)}>미수금 있는 곳<b>{dueCount}</b></button>
+      </div>
+    </div>
     {receivableError&&<div className="error" style={{marginBottom:12}}>미수금 불러오기 실패: {receivableError}<br/><small>먼저 제공된 Supabase SQL을 실행했는지 확인하세요.</small></div>}
     <div className="customer-layout">
       <div className="customer-list-area">
         <div className="customer-table-wrap"><table className="customer-table"><thead><tr>
-          <th><button onClick={()=>changeSort('name')}>{customerMode==='personal'?'고객명':'거래처명'} <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th>{customerMode==='personal'&&<th>구매처</th>}<th>단가 구분</th><th><button onClick={()=>changeSort('totalAmount')}>누적 금액 <span>{sortMark('totalAmount')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th>미수금</th><th>관리</th>
-        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td>{customerMode==='personal'&&<td>{c.purchase_channel||'-'}</td>}<td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{Math.max(0,stats.totalAmount).toLocaleString()}원</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button className="oto-unified-edit" onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button oto-unified-delete" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan={customerMode==='personal'?10:9}>{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
-        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={selectedId===c.id?'selected':''} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}{customerMode==='personal'?' · 구매처 '+(c.purchase_channel||'미지정'):''}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button className="oto-unified-edit" onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button oto-unified-delete" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
-        {!rows.length&&<Empty text={query?'검색 결과가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
+          <th><button onClick={()=>changeSort('name')}>{customerMode==='personal'?'고객명':'거래처명'} <span>{sortMark('name')}</span></button></th><th><button onClick={()=>changeSort('recipient_name')}>받는 사람 <span>{sortMark('recipient_name')}</span></button></th><th><button onClick={()=>changeSort('phone')}>연락처 <span>{sortMark('phone')}</span></button></th><th>주소</th>{customerMode==='personal'&&<th>구매처</th>}<th>단가 구분</th><th><button onClick={()=>changeSort('totalAmount')}>누적 금액 <span>{sortMark('totalAmount')}</span></button></th><th><button onClick={()=>changeSort('lastOut')}>최근 거래일 <span>{sortMark('lastOut')}</span></button></th><th><button onClick={()=>changeSort('receivable')}>미수금 <span>{sortMark('receivable')}</span></button></th><th>관리</th>
+        </tr></thead><tbody>{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><tr key={c.id} className={(selectedId===c.id?'selected':'')+((receivableBalanceByCustomer[String(c.id)]||0)>0?' has-due':'')} onClick={()=>selectCustomer(c.id)}><td><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b></td><td>{c.recipient_name||'-'}</td><td className="customer-phone">{c.phone||'-'}</td><td className="customer-address">{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</td>{customerMode==='personal'&&<td>{c.purchase_channel||'-'}</td>}<td><span className={'price-type-badge '+(c.price_type||'wholesale')}>{priceTypeLabel(c.price_type)}</span></td><td><strong>{Math.max(0,stats.totalAmount).toLocaleString()}원</strong></td><td>{stats.lastOut?new Date(stats.lastOut).toLocaleDateString('ko-KR'):'-'}</td><td><strong style={{color:(receivableBalanceByCustomer[String(c.id)]||0)>0?'#d92d20':'inherit'}}>{Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</strong></td><td><div className="customer-row-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button className="oto-unified-edit" onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button oto-unified-delete" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></td></tr>{String(selectedId)===String(c.id)&&<tr className="customer-inline-detail-row"><td colSpan={customerMode==='personal'?10:9}>{customerHistoryPanel}</td></tr>}</React.Fragment>})}</tbody></table></div>
+        <div className="customer-mobile-list">{rows.map(c=>{const stats=customerStats[c.id]||{totalAmount:0,lastOut:''};return <React.Fragment key={c.id}><article key={c.id} className={(selectedId===c.id?'selected':'')+((receivableBalanceByCustomer[String(c.id)]||0)>0?' has-due':'')} onClick={()=>selectCustomer(c.id)}><div className="customer-card-head"><b><span className="customer-expand-arrow">›</span><button type="button" className="customer-name-link" onClick={e=>{e.stopPropagation();setDetailCustomer(c)}}>{c.name}</button></b><span>미수 {Math.max(0,receivableBalanceByCustomer[String(c.id)]||0).toLocaleString()}원</span></div><small>{c.recipient_name||'-'} · {c.phone||'-'} · {priceTypeLabel(c.price_type)}{customerMode==='personal'?' · 구매처 '+(c.purchase_channel||'미지정'):''}</small><p>{[c.address,c.address_detail].filter(Boolean).join(' ')||'주소 없음'}</p><div className="customer-card-actions"><button onClick={e=>{e.stopPropagation();selectCustomer(c.id)}}>거래내역</button><button className="primary" onClick={e=>{e.stopPropagation();setSelectedId(c.id);setReceivableModal({mode:'payment',customer:c})}}>입금처리</button>{isAdmin&&<button className="oto-unified-edit" onClick={e=>{e.stopPropagation();onEdit(c)}}>수정</button>}{isAdmin&&<button className="danger-button oto-unified-delete" onClick={e=>{e.stopPropagation();onDelete(c)}}>삭제</button>}</div></article>{String(selectedId)===String(c.id)&&<div className="customer-mobile-inline-detail">{customerHistoryPanel}</div>}</React.Fragment>})}</div>
+        {!rows.length&&<Empty text={(query||receivableOnly)?'조건에 맞는 거래처가 없습니다.':'등록된 거래처가 없습니다.'}/>} 
       </div>
 
     </div>
@@ -3383,8 +3419,19 @@ function InvoiceModal({customer,logs,products,onClose}){
   const fmt=value=>Number(value||0).toLocaleString('ko-KR');
   const parseMoney=value=>String(value??'').replace(/[^0-9.-]/g,'');
 
-  function renderStatementCopy({copyLabel,editable=false}){
+  // v6.7.2: 품목이 많으면 A4 한 장(상하 2부)씩 자동으로 나눕니다.
+  const ITEMS_PER_PAGE=6;
+  const invoicePages=[];
+  for(let i=0;i<Math.max(items.length,1);i+=ITEMS_PER_PAGE)invoicePages.push({offset:i,list:items.slice(i,i+ITEMS_PER_PAGE)});
+  const pageCount=invoicePages.length;
+
+  function renderStatementCopy({copyLabel,editable=false,page}){
     const readOnly=!editable;
+    const pageOffset=page.offset;
+    const pageList=page.list;
+    const isLastPage=page.offset+ITEMS_PER_PAGE>=items.length;
+    const pageNo=Math.floor(page.offset/ITEMS_PER_PAGE)+1;
+    const pageSums=pageList.reduce((acc,item)=>{const v=vatBreakdown(item.unitPrice,item.quantity,priceType);acc.supply+=v.supply;acc.tax+=v.tax;return acc;},{supply:0,tax:0});
     const inputProps=(value,onChange,extra={})=>({
       value:value??'',
       readOnly,
@@ -3394,7 +3441,7 @@ function InvoiceModal({customer,logs,products,onClose}){
     });
 
     return <section className="statement-copy">
-      <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>({copyLabel})</span></div>
+      <div className="invoice-title-row"><h1>거 래 명 세 표</h1><span>({copyLabel}{pageCount>1?` · ${pageNo}/${pageCount}쪽`:''})</span></div>
       <table className="invoice-parties"><colgroup>
         <col className="party-customer-vertical"/><col className="party-customer-label"/><col className="party-customer-data"/><col className="party-customer-label-sub"/><col className="party-customer-data-sub"/>
         <col className="party-supplier-vertical"/><col className="party-supplier-label"/><col className="party-supplier-data"/><col className="party-supplier-label-sub"/><col className="party-supplier-data-sub"/>
@@ -3406,7 +3453,7 @@ function InvoiceModal({customer,logs,products,onClose}){
       <tr><th>전화</th><td colSpan="3">{invoiceCustomer.phone||''}</td><th>전화</th><td><input {...inputProps(supplier.phone,e=>updateSupplier('phone',e.target.value))}/></td><th>팩스</th><td><input {...inputProps(supplier.fax||'',e=>updateSupplier('fax',e.target.value))}/></td></tr></tbody></table>
       <div className="statement-summary"><b>합계금액(VAT 포함)</b><strong>{fmt(grandTotal)} 원</strong></div>
       <table className="invoice-items"><colgroup><col className="invoice-col-month"/><col className="invoice-col-day"/><col className="invoice-col-item"/><col className="invoice-col-qty"/><col className="invoice-col-unit"/><col className="invoice-col-supply"/><col className="invoice-col-tax"/></colgroup><thead><tr><th>월</th><th>일</th><th>품목</th><th>수량</th><th>단가</th><th>공급가액</th><th>세액</th></tr></thead><tbody>
-      {items.map((item,index)=>{const d=(item.date||issueDate).split('-');const vat=vatBreakdown(item.unitPrice,item.quantity,priceType);const supply=vat.supply;const tax=vat.tax;return <tr key={item.id}>
+      {pageList.map((item,localIndex)=>{const index=pageOffset+localIndex;const d=(item.date||issueDate).split('-');const vat=vatBreakdown(item.unitPrice,item.quantity,priceType);const supply=vat.supply;const tax=vat.tax;return <tr key={item.id}>
         <td><input {...inputProps(d[1]||'',e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${String(e.target.value).padStart(2,'0')}-${d[2]||'01'}`))}/></td>
         <td><input {...inputProps(d[2]||'',e=>updateItem(index,'date',`${d[0]||issueDate.slice(0,4)}-${d[1]||'01'}-${String(e.target.value).padStart(2,'0')}`))}/></td>
         <td style={{position:'relative'}}><input style={{paddingRight:24}} {...inputProps(item.name,e=>updateItem(index,'name',e.target.value))}/>{editable&&<button type="button" className="invoice-delete no-print" title="이 품목 삭제" aria-label="이 품목 삭제" style={{position:'absolute',right:3,top:'50%',transform:'translateY(-50%)',width:24,height:24,padding:0,border:'none',background:'transparent',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} onClick={()=>{if(items.length<=1){window.alert('거래명세표에는 품목이 최소 1개 필요합니다.');return;}setItems(current=>current.filter((_,i)=>i!==index));}}><Trash2 size={15}/></button>}</td>
@@ -3414,8 +3461,8 @@ function InvoiceModal({customer,logs,products,onClose}){
         <td><input className="money-input" inputMode="numeric" {...inputProps(fmt(item.unitPrice),e=>updateItem(index,'unitPrice',parseMoney(e.target.value)))}/></td>
         <td className="money">{fmt(supply)}</td><td className="money">{fmt(tax)}</td>
       </tr>})}
-      {Array.from({length:Math.max(0,6-items.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}
-      </tbody><tfoot><tr><th className="total-label" colSpan="5">합계</th><td className="money total-money">{fmt(supplyTotal)}</td><td className="money total-money">{fmt(taxTotal)}</td></tr></tfoot></table>
+      {Array.from({length:Math.max(0,ITEMS_PER_PAGE-pageList.length)}).map((_,i)=><tr className="invoice-empty-row" key={'empty-'+i}><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}
+      </tbody><tfoot><tr><th className="total-label" colSpan="5">{isLastPage?'합계':'소계 (다음 쪽에 계속)'}</th><td className="money total-money">{fmt(isLastPage?supplyTotal:pageSums.supply)}</td><td className="money total-money">{fmt(isLastPage?taxTotal:pageSums.tax)}</td></tr></tfoot></table>
       <div className="invoice-note"><b>비고</b><textarea placeholder={editable?'비고 내용을 입력하세요':''} {...inputProps(note,e=>setNote(e.target.value))}/></div>
       <div className="invoice-account"><b>입금계좌</b><input placeholder={editable?'예: 국민은행 000000-00-000000 예금주 OTO':''} {...inputProps(supplier.bankAccount||'',e=>updateSupplier('bankAccount',e.target.value))}/></div>
       <table className="invoice-sign"><tbody><tr><th>인수자</th><td>인</td><th>납품자</th><td>인</td><th>미수금</th><td></td></tr></tbody></table>
@@ -3494,18 +3541,21 @@ function InvoiceModal({customer,logs,products,onClose}){
 
       {archiveOpen&&<div className="invoice-archive no-print"><div className="invoice-archive-head"><b>저장된 거래명세표</b><button onClick={()=>setArchiveOpen(false)}>닫기</button></div>{savedInvoices.length?savedInvoices.map(invoice=><article key={invoice.id}><button className="invoice-archive-main" onClick={()=>loadInvoice(invoice)}><b>{invoice.customer?.name||'거래명세표'}</b><span>{invoice.issueDate||''}</span></button><button onClick={()=>{loadInvoice(invoice);setTimeout(()=>window.print(),80)}}><Printer size={14}/>재출력</button><button className="danger-button" onClick={()=>deleteInvoice(invoice.id)}>삭제</button></article>):<p>저장된 거래명세표가 없습니다.</p>}</div>}
 
-      <div
-        className="invoice-preview-viewport"
-        style={{
-          '--invoice-preview-scale':invoicePreviewScale,
-          '--invoice-preview-height':`${1123*invoicePreviewScale}px`
-        }}
-      >
-        <div ref={invoicePreviewRef} className="invoice-sheet portrait-double">
-          {renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true})}
-          <div className="cut-line" aria-hidden="true"></div>
-          {renderStatementCopy({copyLabel:'공급자 보관용'})}
-        </div>
+      <div className="invoice-pages">
+        {invoicePages.map((page,pageIdx)=><div
+          key={page.offset}
+          className="invoice-preview-viewport"
+          style={{
+            '--invoice-preview-scale':invoicePreviewScale,
+            '--invoice-preview-height':`${1123*invoicePreviewScale}px`
+          }}
+        >
+          <div ref={pageIdx===0?invoicePreviewRef:undefined} className="invoice-sheet portrait-double">
+            {renderStatementCopy({copyLabel:'공급받는자 보관용',editable:true,page})}
+            <div className="cut-line" aria-hidden="true"></div>
+            {renderStatementCopy({copyLabel:'공급자 보관용',page})}
+          </div>
+        </div>)}
       </div>
     </div>
   </div>
@@ -3668,10 +3718,11 @@ function EmployeeManagement({session,currentUserId}){
     </div>
 
     {error&&<div className="error employee-error">{error}</div>}
+    {!loading&&employees.length>0&&<div className="employee-summary"><span>전체 <b>{employees.length}</b>명</span><span>관리자 <b>{employees.filter(e=>e.role==='admin').length}</b>명</span><span>직원 <b>{employees.filter(e=>e.role!=='admin').length}</b>명</span>{employees.some(e=>!e.active)&&<span className="off">중지 <b>{employees.filter(e=>!e.active).length}</b>명</span>}</div>}
 
     <div className="employee-list">
       {loading&&<div className="employee-loading">직원 목록을 불러오는 중…</div>}
-      {!loading&&employees.map(employee=>
+      {!loading&&[...employees].sort((a,b)=>Number(!!b.active)-Number(!!a.active)).map(employee=>
         <article key={employee.id} className={!employee.active?'inactive':''}>
           <div className="employee-avatar">{employee.name?.slice(0,1)||'직'}</div>
           <div className="employee-info">
@@ -3820,11 +3871,13 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
     }
   }
 
-  const rows=useMemo(()=>logs.filter(log=>{
+  // 구분(입고/출고)을 제외한 검색 결과: 구분 버튼에 건수를 표시하기 위해 먼저 계산합니다.
+  const baseRows=useMemo(()=>logs.filter(log=>{
     const date=stockLogDate(log);
     const text=[log.product_name,log.customer_name,log.recipient_name,log.destination,log.tracking_number,log.order_number,log.staff_name].join(' ').toLowerCase();
-    return (!type||log.movement_type===type)&&(!from||date>=from)&&(!to||date<=to)&&text.includes(query.toLowerCase());
-  }),[logs,query,type,from,to]);
+    return (!from||date>=from)&&(!to||date<=to)&&text.includes(query.toLowerCase());
+  }),[logs,query,from,to]);
+  const rows=useMemo(()=>type?baseRows.filter(log=>log.movement_type===type):baseRows,[baseRows,type]);
 
   useEffect(()=>{setPage(1);setExpandedLogId(null)},[query,type,from,to]);
   const logSortValue=(log,key)=>{
@@ -3847,6 +3900,34 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
   const totalPages=Math.max(1,Math.ceil(sortedRows.length/pageSize));
   const currentPage=Math.min(page,totalPages);
   const visibleRows=sortedRows.slice((currentPage-1)*pageSize,currentPage*pageSize);
+
+  // v6.7.1: 날짜별 묶음 머리글, 기간 바로가기, 요약
+  const todayStr=new Date().toLocaleDateString('en-CA');
+  const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return d.toLocaleDateString('en-CA');};
+  const rangePresets=[['all','전체 기간','',''],['today','오늘',todayStr,todayStr],['7d','최근 7일',daysAgo(6),todayStr],['month','이번 달',todayStr.slice(0,8)+'01',todayStr]];
+  const activePreset=(rangePresets.find(([,,f,t])=>f===from&&t===to)||[])[0];
+  const hasLogFilter=Boolean(query||type||from||to);
+  const resetLogFilters=()=>{setQuery('');setType('');setFrom('');setTo('');};
+  const inQty=rows.filter(l=>l.movement_type==='in').reduce((a,l)=>a+Number(l.quantity),0);
+  const outQty=rows.filter(l=>l.movement_type==='out').reduce((a,l)=>a+Number(l.quantity),0);
+  const inCount=baseRows.filter(l=>l.movement_type==='in').length;
+  const outCount=baseRows.filter(l=>l.movement_type==='out').length;
+  const dayStats=useMemo(()=>{
+    const map=new Map();
+    for(const l of sortedRows){
+      const d=stockLogDate(l);
+      const st=map.get(d)||{count:0,in:0,out:0};
+      st.count+=1;
+      if(l.movement_type==='in')st.in+=Number(l.quantity)||0;else st.out+=Number(l.quantity)||0;
+      map.set(d,st);
+    }
+    return map;
+  },[sortedRows]);
+  const dayLabel=d=>{
+    const [y,m,dd]=d.split('-').map(Number);
+    const w=['일','월','화','수','목','금','토'][new Date(y,m-1,dd).getDay()];
+    return `${m}월 ${dd}일 (${w})${d===todayStr?' · 오늘':''}`;
+  };
 
   function csv(){
     const head=['일시','구분','상품','수량','담당자','거래처','받는사람','주소','택배사','송장번호','주문번호','메모'];
@@ -3871,41 +3952,52 @@ function Logs({logs,products,customers,isAdmin,onMove,onDelete,onEdit,onDateChan
   const selectedOutProduct=products.find(product=>String(product.id)===String(outProductId))||null;
 
   return <section className="panel">
-    <div className="oto-movement-two-column" style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:14,padding:16,borderBottom:'1px solid #e4e7ec'}}>
-      <div style={{minWidth:0,padding:18,border:'1px solid #d1e9d9',borderRadius:12,background:'#f7fdf9'}}>
-        <h3 style={{margin:'0 0 6px',color:'#067647'}}>입고 등록</h3>
-        <p style={{margin:'0 0 14px',fontSize:12,color:'#667085'}}>입고할 상품을 선택하세요.</p>
-        <select aria-label="입고 상품 선택" style={{width:'100%',height:42,borderRadius:9,border:'1px solid #d0d5dd',background:'#fff',padding:'0 10px'}} value={inProductId} onChange={e=>setInProductId(e.target.value)}>
-          <option value="">입고 상품 선택</option>
+    <div className="log-register">
+      <div className="log-register-card in">
+        <strong>입고 등록</strong>
+        <select aria-label="입고 상품 선택" value={inProductId} onChange={e=>setInProductId(e.target.value)}>
+          <option value="">입고할 상품 선택</option>
           {products.map(product=><option key={product.id} value={product.id}>{product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {formatNumber(product.quantity)}</option>)}
         </select>
-        <button className="primary" style={{width:'100%',marginTop:12,justifyContent:'center'}} disabled={!selectedInProduct} onClick={()=>selectedInProduct&&onMove(selectedInProduct,'in')}><Plus size={18}/>입고 등록</button>
+        <button type="button" className="primary" disabled={!selectedInProduct} onClick={()=>selectedInProduct&&onMove(selectedInProduct,'in')}><Plus size={16}/>입고</button>
       </div>
-      <div style={{minWidth:0,padding:18,border:'1px solid #d6e4ff',borderRadius:12,background:'#f7faff'}}>
-        <h3 style={{margin:'0 0 6px',color:'#155eef'}}>출고 등록</h3>
-        <p style={{margin:'0 0 14px',fontSize:12,color:'#667085'}}>출고할 상품을 선택하세요. 고객별 구매처도 기록할 수 있습니다.</p>
-        <select aria-label="출고 상품 선택" style={{width:'100%',height:42,borderRadius:9,border:'1px solid #d0d5dd',background:'#fff',padding:'0 10px'}} value={outProductId} onChange={e=>setOutProductId(e.target.value)}>
-          <option value="">출고 상품 선택</option>
+      <div className="log-register-card out" title="고객별 구매처도 기록할 수 있습니다.">
+        <strong>출고 등록</strong>
+        <select aria-label="출고 상품 선택" value={outProductId} onChange={e=>setOutProductId(e.target.value)}>
+          <option value="">출고할 상품 선택</option>
           {products.map(product=><option key={product.id} value={product.id}>{product.name} · {product.size||'사이즈 없음'} · {product.color||'색상 없음'} · 재고 {formatNumber(product.quantity)}</option>)}
         </select>
-        <button className="primary" style={{width:'100%',marginTop:12,justifyContent:'center'}} disabled={!selectedOutProduct} onClick={()=>selectedOutProduct&&onMove(selectedOutProduct,'out')}><Plus size={18}/>출고 등록</button>
+        <button type="button" className="primary" disabled={!selectedOutProduct} onClick={()=>selectedOutProduct&&onMove(selectedOutProduct,'out')}><Plus size={16}/>출고</button>
       </div>
-      <div style={{gridColumn:'1 / -1',display:'flex',justifyContent:'flex-end'}}><button className="ghost" onClick={()=>onMove('__batch__')}>+ 여러 상품 등록 (입고·출고·반품)</button></div>
+      <button type="button" className="ghost log-register-batch" onClick={()=>onMove('__batch__')}>+ 여러 상품 등록 (입고·출고·반품)</button>
     </div>
-    <div className="log-filter">
-      <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품, 거래처, 송장번호, 담당자 검색"/></div>
-      <select value={type} onChange={e=>setType(e.target.value)}><option value="">전체 구분</option><option value="in">입고</option><option value="out">출고</option></select>
-      <input type="date" value={from} onChange={e=>setFrom(e.target.value)}/>
-      <input type="date" value={to} onChange={e=>setTo(e.target.value)}/>
-      <button onClick={csv}><Download size={17}/>CSV</button>
+    <div className="log-filter log-filter-v2">
+      <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품, 거래처, 송장번호, 담당자 검색"/>{query&&<button type="button" className="search-clear" onClick={()=>setQuery('')} aria-label="검색어 지우기">×</button>}</div>
+      <div className="log-type-chips" role="group" aria-label="구분 필터">
+        {[['','전체',inCount+outCount],['in','입고',inCount],['out','출고',outCount]].map(([key,label,count])=>
+          <button type="button" key={key||'all'} className={'chip'+(type===key?' active':'')+(key?' '+key:'')} onClick={()=>setType(key)}>{label}<b>{count.toLocaleString()}</b></button>
+        )}
+      </div>
+      <div className="log-range">
+        <div className="log-presets" role="group" aria-label="기간 바로가기">
+          {rangePresets.map(([key,label,f,t])=><button type="button" key={key} className={'chip small'+(activePreset===key?' active':'')} onClick={()=>{setFrom(f);setTo(t);}}>{label}</button>)}
+        </div>
+        <div className="log-dates"><input type="date" aria-label="시작일" value={from} onChange={e=>setFrom(e.target.value)}/><span>~</span><input type="date" aria-label="종료일" value={to} onChange={e=>setTo(e.target.value)}/></div>
+      </div>
+      <div className="log-filter-end">{hasLogFilter&&<button type="button" className="ghost" onClick={resetLogFilters}>초기화</button>}<button type="button" onClick={csv}><Download size={17}/>CSV</button></div>
     </div>
-    <div className="log-summary">검색 결과 {rows.length.toLocaleString()}건 · 입고 {rows.filter(l=>l.movement_type==='in').reduce((a,l)=>a+Number(l.quantity),0).toLocaleString()}개 · 출고 {rows.filter(l=>l.movement_type==='out').reduce((a,l)=>a+Number(l.quantity),0).toLocaleString()}개</div>
+    <div className="log-summary log-summary-v2"><span className="s-count"><b>{rows.length.toLocaleString()}</b>건</span><span className="s-in">입고 <b>+{inQty.toLocaleString()}</b>개</span><span className="s-out">출고 <b>-{outQty.toLocaleString()}</b>개</span></div>
     <div className="oto-compact-log-wrap">
       <table className="oto-compact-log-table">
         <thead><tr><LogSortHead sortKey="date">날짜</LogSortHead><LogSortHead sortKey="type">구분</LogSortHead><LogSortHead sortKey="product">상품명</LogSortHead><LogSortHead sortKey="customer">거래처 / 담당자</LogSortHead><LogSortHead sortKey="quantity">수량</LogSortHead><th>관리</th></tr></thead>
         <tbody>
-          {visibleRows.map(log=><React.Fragment key={log.id}>
-            <tr className={expandedLogId===log.id?'oto-log-selected':''}>
+          {visibleRows.map((log,idx)=><React.Fragment key={log.id}>
+            {logSort.key==='date'&&(idx===0||stockLogDate(visibleRows[idx-1])!==stockLogDate(log))&&(()=>{
+              const day=stockLogDate(log);
+              const st=dayStats.get(day)||{count:0,in:0,out:0};
+              return <tr className="oto-log-date-row"><td colSpan="6"><b>{dayLabel(day)}</b><span>{st.count}건</span>{st.in>0&&<span className="in">입고 +{st.in.toLocaleString()}</span>}{st.out>0&&<span className="out">출고 -{st.out.toLocaleString()}</span>}</td></tr>;
+            })()}
+            <tr className={'oto-log-row log-'+(log.movement_type==='in'?'in':'out')+(expandedLogId===log.id?' oto-log-selected':'')} onClick={e=>{if(e.target.closest('button,a,input,select,label'))return;setExpandedLogId(id=>id===log.id?null:log.id)}}>
               <td className="oto-log-date">{stockLogDateKo(log)}</td>
               <td><span className={'oto-log-badge '+(log.movement_type==='in'?'in':'out')}>{log.movement_type==='in'?'입고':'출고'}</span></td>
               <td><button type="button" className="oto-log-product" onClick={()=>{const product=products.find(item=>String(item.id)===String(log.product_id))||products.find(item=>String(log.product_name||'').startsWith(item.name));setDetailProduct(product||{id:log.product_id,name:log.product_name,quantity:0})}}>{log.product_name}</button></td>
@@ -3951,21 +4043,26 @@ function StockLogEditModal({log,products,customers,onClose,onSave}){
   const [form,setForm]=useState({product_id:String(log.product_id||''),movement_type:log.movement_type,quantity:String(log.quantity),movement_date:stockLogDate(log),customer_id:String(log.customer_id||''),staff_name:log.staff_name||'',recipient_name:log.recipient_name||'',destination:log.destination||'',destination_detail:log.destination_detail||'',destination_postal_code:log.destination_postal_code||'',recipient_phone:log.recipient_phone||'',courier:log.courier||'',tracking_number:log.tracking_number||'',order_number:log.order_number||'',memo:log.memo||'',purchase_channel:log.purchase_channel||''});
   const [busy,setBusy]=useState(false);const [error,setError]=useState('');
   const change=(key,value)=>setForm(current=>({...current,[key]:value}));
+  const todayIso=new Date().toLocaleDateString('en-CA');
+  const yesterdayIso=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toLocaleDateString('en-CA');})();
   const fields=[['staff_name','담당자'],['recipient_name','받는 사람'],['recipient_phone','연락처'],['destination_postal_code','우편번호'],['destination','배송지'],['destination_detail','상세주소'],['courier','택배사'],['tracking_number','송장번호'],['order_number','주문번호'],['purchase_channel','구매처'],['memo','메모']];
   async function submit(e){e.preventDefault();if(busy)return;
     if(!form.product_id||!Number.isInteger(Number(form.quantity))||Number(form.quantity)<1){setError('상품과 1개 이상의 정수 수량을 입력하세요.');return;}
     if(!window.confirm('입출고 기록을 수정하고 재고를 자동으로 재계산할까요?'))return;
     setBusy(true);setError('');try{await onSave({...form,quantity:Number(form.quantity),customer_id:form.customer_id||null})}catch(err){setError(normalizeError(err))}finally{setBusy(false)}
   }
-  return <Modal title="입출고 전체 수정" onClose={()=>!busy&&onClose()}><form onSubmit={submit} style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12,maxHeight:'70vh',overflowY:'auto',padding:16}}>
+  return <Modal title="입출고 전체 수정" onClose={()=>!busy&&onClose()}><form className="log-edit-form" onSubmit={submit} style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12,maxHeight:'70vh',overflowY:'auto',padding:16}}>
+    <div className="log-edit-summary" style={{gridColumn:'1/-1'}}><span className={'oto-log-badge '+(log.movement_type==='in'?'in':'out')}>{log.movement_type==='in'?'입고':'출고'}</span><b>{log.product_name}</b><span>{formatNumber(log.quantity)}개 · {stockLogDateKo(log)}</span></div>
+    <h4 className="log-edit-section" style={{gridColumn:'1/-1'}}>기본 정보</h4>
     <label style={{gridColumn:'1/-1'}}>상품<select required value={form.product_id} onChange={e=>change('product_id',e.target.value)}><option value="">상품 선택</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} · 재고 {formatNumber(p.quantity)}</option>)}</select></label>
     <label>구분<select value={form.movement_type} onChange={e=>change('movement_type',e.target.value)}><option value="in">입고</option><option value="out">출고</option></select></label>
-    <label>수량<input required type="number" min="1" step="1" value={form.quantity} onChange={e=>change('quantity',e.target.value)}/></label>
-    <label>처리일<input required type="date" value={form.movement_date} onChange={e=>change('movement_date',e.target.value)}/></label>
+    <label>수량<div className="qty-stepper"><button type="button" aria-label="수량 1 감소" onClick={()=>change('quantity',String(Math.max(1,(Number(form.quantity)||1)-1)))}>−</button><input required type="number" inputMode="numeric" min="1" step="1" value={form.quantity} onChange={e=>change('quantity',e.target.value)}/><button type="button" aria-label="수량 1 증가" onClick={()=>change('quantity',String((Number(form.quantity)||0)+1))}>+</button></div></label>
+    <label>처리일<input required type="date" value={form.movement_date} onChange={e=>change('movement_date',e.target.value)}/><span className="date-quick"><button type="button" className={form.movement_date===todayIso?'on':''} onClick={()=>change('movement_date',todayIso)}>오늘</button><button type="button" className={form.movement_date===yesterdayIso?'on':''} onClick={()=>change('movement_date',yesterdayIso)}>어제</button></span></label>
     <label>거래처<select value={form.customer_id} onChange={e=>{const id=e.target.value;const c=customers.find(c=>String(c.id)===id);setForm(f=>({...f,customer_id:id,recipient_name:c?.recipient_name||f.recipient_name}))}}><option value="">선택 안 함</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+    <h4 className="log-edit-section" style={{gridColumn:'1/-1'}}>담당·배송 정보</h4>
     {fields.map(([key,label])=><label key={key} style={key==='memo'||key==='destination'?{gridColumn:'1/-1'}:{}}>{label}<input value={form[key]} onChange={e=>change(key,e.target.value)}/></label>)}
     {error&&<p style={{gridColumn:'1/-1',color:'#d92d20'}}>{error}</p>}
-    <div style={{gridColumn:'1/-1',display:'flex',justifyContent:'flex-end',gap:8}}><button type="button" onClick={onClose} disabled={busy}>취소</button><button type="submit" className="primary" disabled={busy}>{busy?'저장 중…':'수정 저장'}</button></div>
+    <div className="log-edit-footer" style={{gridColumn:'1/-1',display:'flex',justifyContent:'flex-end',gap:8}}><button type="button" onClick={onClose} disabled={busy}>취소</button><button type="submit" className="primary" disabled={busy}>{busy?'저장 중…':'수정 저장'}</button></div>
   </form></Modal>;
 }
 
@@ -4795,4 +4892,172 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v670-usability')
     }
   `;
   document.head.appendChild(usabilityStyle);
+}
+
+/* v6.7.1: 입출고 탭 가독성·수정 편의 개선 (기능/데이터 변경 없음)
+   - 컴팩트한 등록 줄, 구분·기간 바로가기 필터, 요약
+   - 날짜별 묶음 머리글, 입고/출고 색 막대, 모바일 카드형 목록
+   - 수정 창: 대상 요약, 구역 나누기, 수량 증감, 날짜 바로가기, 항상 보이는 저장 버튼 */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v671-logs')){
+  const logsStyle=document.createElement('style');
+  logsStyle.id='oto-v671-logs';
+  logsStyle.textContent=`
+    /* 등록 줄 */
+    html body #root .app .log-register{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid #e4e7ec;}
+    html body #root .app .log-register-card{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;border-radius:12px;border:1px solid;}
+    html body #root .app .log-register-card.in{border-color:#d1e9d9;background:#f7fdf9;}
+    html body #root .app .log-register-card.out{border-color:#d6e4ff;background:#f7faff;}
+    html body #root .app .log-register-card strong{font-size:13px;white-space:nowrap;}
+    html body #root .app .log-register-card.in strong{color:#067647;}
+    html body #root .app .log-register-card.out strong{color:#155eef;}
+    html body #root .app .log-register-card select{flex:1 1 auto;min-width:0;height:38px;border:1px solid #d0d5dd;border-radius:9px;background:#fff;padding:0 8px;font-size:13px;}
+    html body #root .app .log-register-card button{height:38px;padding:0 14px;white-space:nowrap;}
+    html body #root .app .log-register-batch{height:38px;white-space:nowrap;font-size:13px;}
+
+    /* 필터 */
+    html body #root .app .log-filter.log-filter-v2{display:flex!important;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 14px;}
+    html body #root .app .log-filter-v2 .search{flex:1 1 240px;min-width:200px;max-width:380px;}
+    html body #root .app .log-filter-v2 .search-clear{border:0!important;background:transparent!important;box-shadow:none!important;padding:0 4px!important;min-height:0!important;font-size:20px;line-height:1;color:#98a2b3;}
+    html body #root .app .log-type-chips,html body #root .app .log-presets{display:flex;gap:6px;flex-wrap:wrap;}
+    html body #root .app .log-filter-v2 .chip{height:34px;padding:0 12px;border-radius:999px;border:1px solid #d0d5dd;background:#fff;color:#475467;font-size:13px;font-weight:700;gap:6px;}
+    html body #root .app .log-filter-v2 .chip b{font-variant-numeric:tabular-nums;font-weight:800;}
+    html body #root .app .log-filter-v2 .chip.small{height:30px;padding:0 10px;font-size:12px;}
+    html body #root .app .log-filter-v2 .chip.active{background:#101828;border-color:#101828;color:#fff;}
+    html body #root .app .log-filter-v2 .chip.in.active{background:#067647;border-color:#067647;}
+    html body #root .app .log-filter-v2 .chip.out.active{background:#d92d20;border-color:#d92d20;}
+    html body #root .app .log-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    html body #root .app .log-dates{display:flex;align-items:center;gap:6px;color:#98a2b3;}
+    html body #root .app .log-dates input{height:34px;border:1px solid #d0d5dd;border-radius:9px;padding:0 8px;font-size:13px;background:#fff;color:#344054;}
+    html body #root .app .log-filter-end{display:flex;gap:8px;margin-left:auto;}
+
+    /* 요약 */
+    html body #root .app .log-summary.log-summary-v2{display:flex;gap:20px;align-items:baseline;flex-wrap:wrap;padding:10px 16px;background:#f8fafc;font-size:13px;color:#475467;}
+    html body #root .app .log-summary-v2 b{font-size:16px;font-variant-numeric:tabular-nums;margin:0 2px;color:#101828;}
+    html body #root .app .log-summary-v2 .s-in b{color:#067647;}
+    html body #root .app .log-summary-v2 .s-out b{color:#b42318;}
+
+    /* 표 (데스크톱) */
+    html body #root .app .oto-compact-log-table tr.oto-log-row{cursor:pointer;}
+    html body #root .app .oto-compact-log-table tr.log-in > td:first-child{box-shadow:inset 3px 0 0 #12b76a;}
+    html body #root .app .oto-compact-log-table tr.log-out > td:first-child{box-shadow:inset 3px 0 0 #f04438;}
+    html body #root .app .oto-compact-log-table .oto-log-quantity{font-size:15px;}
+    html body #root .app .oto-compact-log-table tr.oto-log-date-row > td{background:#f2f4f7!important;padding:8px 12px!important;font-size:12px!important;color:#475467;border-bottom:1px solid #e4e7ec!important;text-align:left!important;}
+    html body #root .app .oto-compact-log-table tr.oto-log-date-row:hover > td{background:#f2f4f7!important;}
+    html body #root .app .oto-log-date-row b{color:#101828;font-size:13px;margin-right:12px;}
+    html body #root .app .oto-log-date-row span{margin-right:12px;font-variant-numeric:tabular-nums;}
+    html body #root .app .oto-log-date-row span.in{color:#067647;font-weight:700;}
+    html body #root .app .oto-log-date-row span.out{color:#b42318;font-weight:700;}
+
+    /* 수정 창 */
+    html body #root .app .log-edit-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid #e4e7ec;border-radius:12px;background:#f9fafb;font-size:13px;color:#475467;}
+    html body #root .app .log-edit-summary b{color:#101828;font-size:14px;}
+    html body #root .app .log-edit-section{margin:6px 0 0;padding-bottom:4px;border-bottom:1px solid #eef1f5;font-size:12px;font-weight:800;color:#667085;}
+    html body #root .app .qty-stepper{display:flex;align-items:stretch;margin-top:7px;}
+    html body #root .app .qty-stepper input{flex:1 1 auto;min-width:0;width:auto!important;margin-top:0!important;text-align:center;border-radius:0!important;}
+    html body #root .app .qty-stepper button{width:46px;justify-content:center;padding:0;font-size:18px;border-radius:11px 0 0 11px;}
+    html body #root .app .qty-stepper button:last-child{border-radius:0 11px 11px 0;}
+    html body #root .app .date-quick{display:flex;gap:6px;margin-top:6px;}
+    html body #root .app .date-quick button{height:28px;padding:0 10px;font-size:12px;border-radius:8px;}
+    html body #root .app .date-quick button.on{background:#101828;border-color:#101828;color:#fff;}
+    html body #root .app .log-edit-footer button{font-size:14px;}
+    html body #root .app .log-edit-footer{position:sticky;bottom:0;z-index:1;background:#fff;padding:10px 0 4px;border-top:1px solid #eef1f5;}
+
+    /* 모바일: 표를 카드로 */
+    @media(max-width:700px){
+      html body #root .app .log-register{grid-template-columns:1fr;}
+      html body #root .app .log-register-batch{width:100%;justify-content:center;}
+      html body #root .app .log-filter-v2 .search{flex-basis:100%;max-width:none;}
+      html body #root .app .log-range{width:100%;}
+      html body #root .app .log-dates{width:100%;}
+      html body #root .app .log-dates input{flex:1 1 0;min-width:0;}
+      html body #root .app .log-filter-end{margin-left:0;width:100%;}
+      html body #root .app .log-filter-end button{flex:1;justify-content:center;}
+      html body #root .app .oto-compact-log-wrap{overflow:visible!important;padding:8px!important;}
+      html body #root .app .oto-compact-log-wrap > table.oto-compact-log-table{display:block;min-width:0!important;border:0!important;}
+      html body #root .app .oto-compact-log-table thead{display:none;}
+      html body #root .app .oto-compact-log-table tbody{display:grid;gap:10px;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"badge date qty" "product product product" "cust cust cust" "actions actions actions";align-items:center;gap:6px 10px;padding:12px;border:1px solid #e4e7ec;border-left:4px solid #12b76a;border-radius:14px;background:#fff;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row.log-out{border-left-color:#f04438;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row > td{display:block;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;text-align:left!important;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row > td:nth-child(1){grid-area:date;font-size:12px;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row > td:nth-child(2){grid-area:badge;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row > td:nth-child(3){grid-area:product;font-size:15px;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row > td:nth-child(4){grid-area:cust;color:#475467;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row > td:nth-child(5){grid-area:qty;text-align:right!important;font-size:20px;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row > td:nth-child(6){grid-area:actions;margin-top:4px;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-row .oto-log-product{font-size:15px;}
+      html body #root .app .oto-log-row-actions{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;}
+      html body #root .app .oto-log-row-actions .oto-log-action{width:100%!important;height:40px!important;min-height:40px!important;font-size:13px!important;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-date-row,
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-detail-row{display:block;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-date-row > td{display:block;border-radius:10px;}
+      html body #root .app .oto-compact-log-table tbody tr.oto-log-detail-row > td{display:block;border-radius:12px;border:1px solid #dbe5ff!important;}
+      html body #root .app .log-edit-form{grid-template-columns:1fr!important;}
+    }
+  `;
+  document.head.appendChild(logsStyle);
+}
+
+/* v6.7.2 - 도매처/개인고객 요약, 입력창 섹션, 매출 비교, 직원 요약 */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v672-screens')){
+  const st=document.createElement('style');
+  st.id='oto-v672-screens';
+  st.textContent=`
+    html body #root .app .customer-summary-strip{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;margin:0 0 12px;padding:10px 14px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:10px;font-size:13px;color:#475467;}
+    html body #root .app .customer-summary-strip b{color:#101828;}
+    html body #root .app .customer-summary-strip .cs-due.on b{color:#d92d20;}
+    html body #root .app .customer-summary-strip .cs-due small{margin-left:4px;color:#667085;}
+    html body #root .app .customer-filter-chips{display:flex;gap:6px;margin-left:auto;}
+    html body #root .app .customer-filter-chips .chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border:1px solid #d0d5dd;border-radius:999px;background:#fff;color:#344054;font-size:12px;font-weight:700;cursor:pointer;}
+    html body #root .app .customer-filter-chips .chip.active{background:#155eef;border-color:#155eef;color:#fff;}
+    html body #root .app .customer-filter-chips .chip.warn:not(.active){border-color:#fda29b;color:#d92d20;}
+    html body #root .app .customer-filter-chips .chip b{color:inherit;}
+    html body #root .app tr.has-due > td:first-child{box-shadow:inset 3px 0 0 #f04438;}
+    html body #root .app article.has-due{border-left:3px solid #f04438;}
+    html body #root .app .form-section{margin:10px 0 0;padding:0 0 6px;border-bottom:1px solid #e4e7ec;font-size:13px;font-weight:800;color:#344054;}
+    html body #root .app .form-section:first-child{margin-top:0;}
+    html body #root .app .form-footer{position:sticky;bottom:0;z-index:2;display:flex;gap:8px;justify-content:flex-end;margin:6px -2px -2px;padding:12px 2px;background:#fff;border-top:1px solid #e4e7ec;}
+    html body #root .app .form-footer button{min-height:44px;padding:0 20px;}
+    html body #root .app .form-footer .primary{flex:1;max-width:320px;}
+    html body #root .app .month-nav-group{display:inline-flex;align-items:center;gap:6px;}
+    html body #root .app .month-nav-group .ghost{min-height:42px;min-width:38px;padding:0 10px;}
+    html body #root .app .sales-compare{margin:10px 2px;font-size:13px;color:#475467;}
+    html body #root .app .sales-compare .up{color:#067647;}
+    html body #root .app .sales-compare .down{color:#d92d20;}
+    html body #root .app .share-cell{display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
+    html body #root .app .share-bar{display:block;height:5px;min-width:2px;border-radius:3px;background:#84adff;}
+    html body #root .app .employee-summary{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 12px;padding:10px 14px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:10px;font-size:13px;color:#475467;}
+    html body #root .app .employee-summary b{color:#101828;}
+    html body #root .app .employee-summary .off b{color:#d92d20;}
+    html body #root .app .login-show-pw{display:flex;align-items:center;gap:8px;margin:6px 0 2px;font-size:13px;color:#475467;cursor:pointer;}
+    html body #root .app .login-show-pw input{width:auto;min-height:0;margin:0;}
+    @media(max-width:700px){
+      html body #root .app .customer-filter-chips{margin-left:0;width:100%;}
+      html body #root .app .form-footer .primary{max-width:none;}
+    }
+  `;
+  document.head.appendChild(st);
+}
+
+/* v6.7.2: 거래명세표 품목 자동 페이지 분할 CSS (v6.6.25 복구) */
+if(typeof document!=='undefined'&&!document.getElementById('oto-invoice-multipage')){
+ const st=document.createElement('style');st.id='oto-invoice-multipage';st.textContent=`
+ @media screen{
+  .invoice-pages{display:flex;flex-direction:column;align-items:center;gap:18px;padding-bottom:24px;}
+  .invoice-pages .invoice-preview-viewport{flex:none;}
+ }
+ @media print{
+  @page{size:A4 portrait;margin:0;}
+  html,body,#root{height:auto!important;min-height:0!important;overflow:visible!important;}
+  .invoice-overlay{position:absolute!important;inset:auto!important;top:0!important;left:0!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;}
+  .invoice-window{position:static!important;inset:auto!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;}
+  .invoice-pages{display:block!important;position:static!important;width:210mm!important;height:auto!important;overflow:visible!important;}
+  .invoice-pages .invoice-preview-viewport{display:block!important;position:relative!important;width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;margin:0!important;padding:0!important;overflow:hidden!important;break-after:page!important;page-break-after:always!important;break-inside:avoid!important;page-break-inside:avoid!important;}
+  .invoice-pages .invoice-preview-viewport:last-child{break-after:auto!important;page-break-after:auto!important;}
+  .invoice-pages .invoice-sheet.portrait-double{position:relative!important;inset:auto!important;top:auto!important;left:auto!important;display:grid!important;grid-template-rows:148.5mm 148.5mm!important;width:210mm!important;height:297mm!important;min-height:297mm!important;max-height:297mm!important;transform:none!important;overflow:hidden!important;}
+  .invoice-pages .invoice-sheet.portrait-double>.statement-copy{height:148.5mm!important;min-height:148.5mm!important;max-height:148.5mm!important;overflow:hidden!important;}
+  .invoice-pages .invoice-sheet.portrait-double>.cut-line{top:148.5mm!important;}
+  .invoice-toolbar-spacer{display:none!important;}
+ }
+`;document.head.appendChild(st);
 }
