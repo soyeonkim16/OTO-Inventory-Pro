@@ -5,7 +5,7 @@ import {createClient} from '@supabase/supabase-js';
 import {Box,LogOut,Plus,RefreshCw,Search,Truck,Users,BarChart3,Download,MapPin,ShieldCheck,UserCog,KeyRound,UserX,UserCheck,Printer,Trash2} from 'lucide-react';
 import './styles.css';
 
-const APP_VERSION='6.6.24';
+const APP_VERSION='6.7.0';
 /* OTO v6.6.14: 목록 수정/삭제 버튼 공통 스타일 (기능 변경 없음) */
 if(typeof document!=='undefined'&&!document.getElementById('oto-unified-action-style')){
  const st=document.createElement('style');
@@ -1300,6 +1300,13 @@ function App(){
   const [logs,setLogs]=useState([]);
   const [customers,setCustomers]=useState([]);
   const [tab,setTab]=useState('inventory');
+  // v6.7.0: 재고 목록 필터 / 마지막 동기화 시각 / 실시간 연결 상태
+  const [stockFilter,setStockFilter]=useState('all');
+  const [categoryFilter,setCategoryFilter]=useState('all');
+  const [lastSync,setLastSync]=useState(null);
+  const [liveStatus,setLiveStatus]=useState('connecting');
+  const liveRef=useRef(false);
+  const lastLoadRef=useRef(0);
   const [query,setQuery]=useState('');
   const [inventorySort,setInventorySort]=useState({key:'name',direction:'asc'});
   const [productModal,setProductModal]=useState(null);
@@ -1353,27 +1360,38 @@ function App(){
       .on('postgres_changes',{event:'*',schema:'public',table:'stock_logs'},scheduleLoad)
       .on('postgres_changes',{event:'*',schema:'public',table:'customers'},scheduleLoad)
       .subscribe((status)=>{
-        if(status==='SUBSCRIBED')scheduleLoad();
-        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')scheduleLoad();
+        // SUBSCRIBED 가 아니면(끊김·오류·시간초과) 연결 끊김으로 표시하고 더 자주 재조회합니다.
+        const connected=status==='SUBSCRIBED';
+        liveRef.current=connected;
+        setLiveStatus(connected?'live':'offline');
+        if(connected||status==='CHANNEL_ERROR'||status==='TIMED_OUT')scheduleLoad();
       });
     const onVisible=()=>{if(document.visibilityState==='visible')scheduleLoad();};
     const onFocus=()=>scheduleLoad();
     document.addEventListener('visibilitychange',onVisible);
     window.addEventListener('focus',onFocus);
+    window.addEventListener('online',onFocus);
+    // 안전망 재조회: 실시간 연결이 정상이면 60초, 끊겼으면 15초 간격 (데이터 사용량 절감).
+    // 마지막 조회로부터 충분히 지난 경우에만 조회하므로 실시간 반영 직후에는 중복 조회하지 않습니다.
     const fallbackSync=setInterval(()=>{
-      if(document.visibilityState==='visible')scheduleLoad();
-    },15000);
+      if(document.visibilityState!=='visible')return;
+      const interval=liveRef.current?60000:15000;
+      if(Date.now()-lastLoadRef.current>=interval)scheduleLoad();
+    },5000);
     return()=>{
       clearTimeout(reloadTimer.current);
       clearInterval(fallbackSync);
       document.removeEventListener('visibilitychange',onVisible);
       window.removeEventListener('focus',onFocus);
+      window.removeEventListener('online',onFocus);
+      liveRef.current=false;
       supabase.removeChannel(channel);
     };
   },[session?.user?.id]);
 
   async function loadAll({silent=false}={}){
     if(!session?.user?.id)return;
+    lastLoadRef.current=Date.now();
     if(!silent)setLoading(true);
     setError('');
     try{
@@ -1409,6 +1427,7 @@ function App(){
       setProducts(latestProducts);
       setLogs(resolvedLogs);
       setCustomers(customerRes.data||[]);
+      setLastSync(new Date());
     }catch(e){
       if(mounted.current)setError(normalizeError(e));
     }finally{
@@ -1659,8 +1678,17 @@ function App(){
     },0);
   })();
 
+  // 부족 기준은 기존과 동일: 재고 ≤ 최소 재고
+  const isLowProduct=p=>Number(p.quantity)<=Number(p.minimum_quantity);
+  const lowCount=products.filter(isLowProduct).length;
+  const categories=[...new Set(products.map(p=>String(p.category||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const hasInventoryFilter=Boolean(query)||stockFilter!=='all'||categoryFilter!=='all';
+  function resetInventoryFilters(){setQuery('');setStockFilter('all');setCategoryFilter('all');}
+
   const filtered=products
     .filter(p=>[p.name,p.category,p.size,p.color,p.memo].join(' ').toLowerCase().includes(query.toLowerCase()))
+    .filter(p=>stockFilter==='all'||(stockFilter==='low'?isLowProduct(p):!isLowProduct(p)))
+    .filter(p=>categoryFilter==='all'||String(p.category||'').trim()===categoryFilter)
     .sort((a,b)=>{
       const {key,direction}=inventorySort;
       const dir=direction==='asc'?1:-1;
@@ -1699,6 +1727,7 @@ function App(){
         <div><b>OTO 재고관리</b><small>{profile?.name||'직원'} · {isAdmin?'관리자':'직원'}</small></div>
       </div>
       <div className="header-actions">
+        <span className={'sync-pill '+liveStatus} title={liveStatus==='live'?'실시간 연결됨 · 다른 기기의 변경이 바로 반영됩니다':liveStatus==='offline'?'실시간 연결이 끊겨 15초마다 자동으로 다시 불러오는 중입니다':'실시간 연결 중…'}><i/>{liveStatus==='live'?'실시간':liveStatus==='offline'?'자동 갱신':'연결 중'}{lastSync&&<em>{lastSync.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}</em>}</span>
         <button className="ghost" onClick={()=>loadAll()} aria-label="새로고침"><RefreshCw size={17}/></button>
         <button className="ghost" onClick={handleLogout} disabled={loading}><LogOut size={17}/><span>로그아웃</span></button>
       </div>
@@ -1710,7 +1739,7 @@ function App(){
       <section className="stats">
         <Stat label="등록 상품" value={products.length}/>
         <Stat label="이번 달 순매출" value={currentMonthNetSales} suffix="원"/>
-        <Stat label="부족 재고" value={products.filter(p=>Number(p.quantity)<=Number(p.minimum_quantity)).length} danger/>
+        <Stat label="부족 재고" value={lowCount} danger hint={stockFilter==='low'?'다시 누르면 전체 보기':'눌러서 부족 재고만 보기'} active={tab==='inventory'&&stockFilter==='low'} onClick={()=>{setTab('inventory');setStockFilter(stockFilter==='low'&&tab==='inventory'?'all':'low');}}/>
         <Stat label="오늘 출고" value={logs.filter(l=>l.movement_type==='out'&&stockLogDate(l)===today).length}/>
       </section>
 
@@ -1733,14 +1762,21 @@ function App(){
             <div className="tab-intro-text"><h3>재고 관리</h3><p>상품의 재고 현황을 확인하고 관리할 수 있습니다.</p></div>
             <div className="tab-intro-actions">{isAdmin&&<button className="primary" onClick={()=>setProductModal(emptyProduct)}><Plus size={18}/>상품 등록</button>}</div>
           </div>
-          <div className="toolbar">
-            <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품명, 사이즈, 색상 검색"/></div>
+          <div className="toolbar inv-toolbar">
+            <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="상품명, 사이즈, 색상 검색"/>{query&&<button type="button" className="search-clear" onClick={()=>setQuery('')} aria-label="검색어 지우기">×</button>}</div>
+            <div className="inv-filters" role="group" aria-label="재고 상태 필터">
+              {[['all','전체',products.length],['low','부족·품절',lowCount],['ok','정상',products.length-lowCount]].map(([key,label,count])=>
+                <button type="button" key={key} className={'chip'+(stockFilter===key?' active':'')+(key==='low'&&count>0?' warn':'')} onClick={()=>setStockFilter(key)}>{label}<b>{count}</b></button>
+              )}
+            </div>
+            {categories.length>1&&<select className="inv-category" value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} aria-label="분류 선택"><option value="all">모든 분류</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select>}
+            <span className="inv-count">{filtered.length===products.length?`총 ${products.length}개`:`${filtered.length}개 표시 / 전체 ${products.length}개`}</span>
           </div>
-          <div className="table-wrap">
+          <div className="table-wrap inv-table-wrap">
             <table>
               <thead><tr><SortHead sortKey="name">상품</SortHead><SortHead sortKey="size">사이즈</SortHead><SortHead sortKey="color">색상</SortHead><SortHead sortKey="wholesale_price">도매가</SortHead><SortHead sortKey="vip_price">도매가(VIP)</SortHead><SortHead sortKey="vvip_price">도매가(VVIP)</SortHead><SortHead sortKey="retail_price">소매가(VAT포함)</SortHead><SortHead sortKey="quantity">재고</SortHead><SortHead sortKey="status">상태</SortHead><th></th></tr></thead>
               <tbody>
-                {filtered.map(p=><tr key={p.id}>
+                {filtered.map(p=><tr key={p.id} className={isLowProduct(p)?(Number(p.quantity)<=0?'row-out':'row-low'):''}>
                   <td data-label="상품"><div className="product-cell">
                     {p.image_url?<button type="button" className="product-thumb-button" onClick={()=>setImageViewer({url:p.image_url,name:p.name})} title="상품 사진 크게 보기"><img className="product-thumb" src={p.image_url} alt={p.name} loading="lazy"/></button>:<div className="product-thumb product-thumb-empty">사진<br/>없음</div>}
                     <div className="product-info"><b>{p.name}</b><small>{p.category}</small></div>
@@ -1751,14 +1787,16 @@ function App(){
                   <td data-label="도매가(VIP)">{formatWon(p.vip_price)}</td>
                   <td data-label="도매가(VVIP)">{formatWon(p.vvip_price)}</td>
                   <td data-label="소매가(VAT포함)">{formatWon(p.retail_price)}</td>
-                  <td data-label="재고"><b>{formatNumber(p.quantity)}</b> <small>/ 최소 {formatNumber(p.minimum_quantity)}</small></td>
+                  <td data-label="재고" className="stock-cell"><b className="stock-num">{formatNumber(p.quantity)}</b> <small>/ 최소 {formatNumber(p.minimum_quantity)}</small></td>
                   <td data-label="상태"><Badge p={p}/></td>
                   <td data-label="관리"><div className="row-actions">
+                    <button type="button" className="oto-move oto-move-in" title={`${p.name} 입고 등록`} onClick={()=>setMoveModal({product:p,initialType:'in'})}>입고</button>
+                    <button type="button" className="oto-move oto-move-out" title={`${p.name} 출고 등록`} onClick={()=>setMoveModal({product:p,initialType:'out'})}>출고</button>
                     {isAdmin&&<button className="oto-unified-edit" onClick={()=>setProductModal(p)}>수정</button>}
                     {isAdmin&&<button className="danger-button oto-unified-delete" onClick={()=>deleteProduct(p)}>삭제</button>}
                   </div></td>
                 </tr>)}
-                {!filtered.length&&<tr><td colSpan="10"><Empty text={query?'검색 결과가 없습니다.':'등록된 상품이 없습니다.'}/></td></tr>}
+                {!filtered.length&&<tr><td colSpan="10"><div className="empty">{hasInventoryFilter?'조건에 맞는 상품이 없습니다.':'등록된 상품이 없습니다.'}{hasInventoryFilter&&<div style={{marginTop:10}}><button type="button" className="ghost" onClick={resetInventoryFilters}>검색·필터 초기화</button></div>}</div></td></tr>}
               </tbody>
             </table>
           </div>
@@ -1877,7 +1915,12 @@ function Login(){
   </form></div>;
 }
 
-function Stat({label,value,danger,suffix=''}){return <div className={'stat '+(danger?'danger':'')}><small>{label}</small><strong>{formatNumber(value)}{suffix}</strong></div>}
+function Stat({label,value,danger,suffix='',onClick,active,hint}){
+  // onClick 이 있으면 눌러서 목록을 거를 수 있는 카드로 동작합니다.
+  const cls='stat '+(danger?'danger':'')+(onClick?' clickable':'')+(active?' active':'');
+  const interactive=onClick?{role:'button',tabIndex:0,title:hint,onClick,onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onClick();}}}:{};
+  return <div className={cls} {...interactive}><small>{label}</small><strong>{formatNumber(value)}{suffix}</strong></div>;
+}
 function SalesStat({label,value,suffix='',danger}){
   const number=Number(value);
   const safeValue=Number.isFinite(number)?number:0;
@@ -4678,4 +4721,78 @@ if(typeof document!=='undefined'&&!document.getElementById('oto-v6624-customer-h
     }
   `;
   document.head.appendChild(headerStyle);
+}
+
+/* v6.7.0: 재고 화면 가독성·사용성 개선 (기능/데이터 변경 없음)
+   - 목록 행 높이 축소(데스크톱), 재고 수량 강조, 부족/품절 행 색 구분
+   - 상태·분류 필터, 행에서 바로 입고/출고, 동기화 상태 표시 */
+if(typeof document!=='undefined'&&!document.getElementById('oto-v670-usability')){
+  const usabilityStyle=document.createElement('style');
+  usabilityStyle.id='oto-v670-usability';
+  usabilityStyle.textContent=`
+    /* 헤더: 동기화 상태 */
+    html body #root .app .header-actions{align-items:center!important;}
+    html body #root .app .header-actions .sync-pill{display:inline-flex!important;align-items:center;gap:6px;padding:0 8px;font-size:12px;font-weight:600;color:#667085;white-space:nowrap;}
+    html body #root .app .sync-pill i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#98a2b3;}
+    html body #root .app .sync-pill.live i{background:#12b76a;box-shadow:0 0 0 3px rgba(18,183,106,.2);}
+    html body #root .app .sync-pill.offline i{background:#f79009;box-shadow:0 0 0 3px rgba(247,144,9,.2);}
+    html body #root .app .sync-pill em{font-style:normal;font-weight:500;color:#98a2b3;font-variant-numeric:tabular-nums;}
+
+    /* 상단 통계 카드: 부족 재고는 눌러서 필터 */
+    html body #root .app .stat.clickable{cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+    html body #root .app .stat.clickable:hover{border-color:#fda29b;}
+    html body #root .app .stat.clickable:focus-visible{outline:2px solid #8fb2ff;outline-offset:2px;}
+    html body #root .app .stat.active{border-color:#f04438;box-shadow:0 0 0 2px rgba(240,68,56,.18);}
+
+    /* 재고 도구줄: 검색 + 상태 필터 + 분류 */
+    html body #root .app .inv-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;justify-content:flex-start;}
+    html body #root .app .inv-toolbar .search{flex:1 1 260px;min-width:200px;max-width:460px;}
+    html body #root .app .inv-toolbar .search-clear{border:0!important;background:transparent!important;box-shadow:none!important;padding:0 4px!important;min-height:0!important;font-size:20px;line-height:1;color:#98a2b3;}
+    html body #root .app .inv-filters{display:flex;flex-wrap:wrap;gap:6px;}
+    html body #root .app .inv-filters .chip{height:34px;padding:0 12px;border-radius:999px;border:1px solid #d0d5dd;background:#fff;color:#475467;font-size:13px;font-weight:700;gap:6px;}
+    html body #root .app .inv-filters .chip b{font-variant-numeric:tabular-nums;font-weight:800;}
+    html body #root .app .inv-filters .chip.warn{border-color:#fda29b;color:#b42318;}
+    html body #root .app .inv-filters .chip.active{background:#101828;border-color:#101828;color:#fff;}
+    html body #root .app .inv-filters .chip.warn.active{background:#d92d20;border-color:#d92d20;color:#fff;}
+    html body #root .app .inv-category{height:36px;border:1px solid #d0d5dd;border-radius:10px;padding:0 10px;background:#fff;color:#344054;font-size:13px;}
+    html body #root .app .inv-count{margin-left:auto;font-size:12px;color:#667085;white-space:nowrap;}
+
+    /* 재고 수량 강조 + 부족/품절 행 구분 (모든 화면 폭 공통) */
+    html body #root .app .stock-cell .stock-num{font-size:17px;font-weight:800!important;font-variant-numeric:tabular-nums;color:#101828;}
+    html body #root .app .stock-cell small{font-size:11px;color:#98a2b3;}
+    html body #root .app tr.row-low .stock-num{color:#b54708;}
+    html body #root .app tr.row-out .stock-num{color:#d92d20;}
+    html body #root .app .oto-move{display:inline-flex!important;align-items:center;justify-content:center;min-width:44px;height:27px;padding:0 9px!important;border-radius:6px!important;background:#fff;font-size:11px!important;font-weight:700!important;white-space:nowrap;}
+    html body #root .app .oto-move-in{border:1px solid #abefc6!important;color:#067647;}
+    html body #root .app .oto-move-in:hover{background:#ecfdf3;}
+    html body #root .app .oto-move-out{border:1px solid #fedf89!important;color:#b54708;}
+    html body #root .app .oto-move-out:hover{background:#fffaeb;}
+
+    /* 데스크톱 표: 행 높이 축소로 한 화면에 더 많은 상품 표시 */
+    @media(min-width:701px){
+      html body #root .app .panel .inv-table-wrap > table > tbody > tr > td{height:auto!important;padding-top:5px!important;padding-bottom:5px!important;}
+      html body #root .app .panel .inv-table-wrap .product-cell .product-thumb-button{width:38px!important;height:38px!important;flex-basis:38px!important;}
+      html body #root .app .panel .inv-table-wrap .product-cell > .product-thumb{width:38px!important;height:38px!important;flex-basis:38px!important;font-size:9px!important;}
+      html body #root .app .panel .inv-table-wrap td[data-label="도매가(VIP)"],
+      html body #root .app .panel .inv-table-wrap td[data-label="도매가(VVIP)"]{color:#667085;}
+      html body #root .app tr.row-low > td{background:#fffaf5!important;}
+      html body #root .app tr.row-out > td{background:#fff6f5!important;}
+      html body #root .app .row-actions{flex-wrap:nowrap;}
+      /* '/ 최소 N' 을 재고 숫자 옆에 붙여 한 줄로 표시 */
+      html body #root .app .panel .inv-table-wrap td.stock-cell{white-space:nowrap;}
+      html body #root .app .panel .inv-table-wrap td.stock-cell small{display:inline!important;margin:0 0 0 6px!important;}
+    }
+    /* 모바일 카드: 부족/품절 카드 테두리 강조 */
+    @media(max-width:700px){
+      html body #root .app .panel .table-wrap tr.row-low{border-color:#fedf89;background:#fffdf8;}
+      html body #root .app .panel .table-wrap tr.row-out{border-color:#fda29b;background:#fff9f8;}
+      html body #root .app .header-actions .sync-pill em{display:none;}
+      /* 모바일 카드: 입고·출고·수정·삭제 버튼을 손가락으로 누르기 쉬운 크기로 */
+      html body #root .app .panel .inv-table-wrap .row-actions{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:8px!important;width:100%!important;}
+      html body #root .app .panel .inv-table-wrap .row-actions > button{width:100%!important;min-width:0!important;height:42px!important;min-height:42px!important;font-size:13px!important;padding:0!important;}
+      html body #root .app .inv-toolbar .inv-count{margin-left:0;}
+      html body #root .app .inv-toolbar .search{max-width:none;flex-basis:100%;}
+    }
+  `;
+  document.head.appendChild(usabilityStyle);
 }
